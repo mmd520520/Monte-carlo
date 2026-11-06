@@ -1,0 +1,1951 @@
+[
+    {
+        "@id": "#soleus_tendon_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_46_soleus_tendon.vtk"
+    },
+    {
+        "@id": "#medial_meniscus_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_82_medial_meniscus.vtk"
+    },
+    {
+        "@id": "#infrapatellar_fat_body",
+        "@type": "Structure",
+        "annotation": {
+            "name": "infrapatellar fat body"
+        },
+        "renderOption": {
+            "color": "rgb(225,230,149)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 9,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#infrapatellar_fat_body_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#_LabelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/x-nrrd",
+        "source": "Data/seg.nrrd"
+    },
+    {
+        "@id": "#patellar_ligament",
+        "@type": "Structure",
+        "annotation": {
+            "name": "patellar ligament"
+        },
+        "renderOption": {
+            "color": "rgb(255,255,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 35,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#patellar_ligament_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#patellar_ligament_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_35_patellar_ligament.vtk"
+    },
+    {
+        "@id": "#vastus_medialis_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_13_vastus_medialis_muscle.vtk"
+    },
+    {
+        "@id": "#medial_sural_cutaneous_nerve_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_64_medial_sural_cutaneous_nerve.vtk"
+    },
+    {
+        "@id": "#semitendinosus_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "semitendinosus muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 17,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#semitendinosus_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#fibular_collateral_ligament",
+        "@type": "Structure",
+        "annotation": {
+            "name": "fibular collateral ligament"
+        },
+        "renderOption": {
+            "color": "rgb(255,255,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 33,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#fibular_collateral_ligament_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#peroneus_nerve_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_61_peroneus_nerve.vtk"
+    },
+    {
+        "@id": "#Bones",
+        "@type": "Group",
+        "annotation": {
+            "name": "Bones"
+        },
+        "member": [
+            "#patella",
+            "#femur",
+            "#tibia",
+            "#fibula"
+        ],
+        "renderOption": {
+            "color": "rgb(196,188,177)"
+        }
+    },
+    {
+        "@id": "#patella_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_98_patella.vtk"
+    },
+    {
+        "@id": "#vastus_medialis_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "vastus medialis muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 13,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#vastus_medialis_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#soleus_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_23_soleus_muscle.vtk"
+    },
+    {
+        "@id": "#semitendinosus_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_17_semitendinosus_muscle.vtk"
+    },
+    {
+        "@id": "#__header__",
+        "@type": "Header",
+        "backgroundImage": [
+            "#_bgImageSrc0"
+        ],
+        "root": [
+            "#Cartilages",
+            "#Bones",
+            "#Muscles",
+            "#Vascular_System",
+            "#Tendons",
+            "#Nerves",
+            "#Meniscus",
+            "#Ligaments",
+            "#Fat"
+        ],
+        "name": "SPL Knee Atlas",
+	"contact": "http://www.spl.harvard.edu/publications/item/view/1953"
+    },
+    {
+        "@id": "#popliteal_artery_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_71_popliteal_artery.vtk"
+    },
+    {
+        "@id": "#popliteal_artery",
+        "@type": "Structure",
+        "annotation": {
+            "name": "popliteal artery"
+        },
+        "renderOption": {
+            "color": "rgb(253,98,70)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 71,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#popliteal_artery_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#Cartilages",
+        "@type": "Group",
+        "annotation": {
+            "name": "Cartilages"
+        },
+        "member": [
+            "#femoral_cartilage",
+            "#medial_tibial_cartilage",
+            "#patellar_cartilage",
+            "#lateral_tibial_cartilage"
+        ],
+        "renderOption": {
+            "color": "rgb(179,179,205)"
+        }
+    },
+    {
+        "@id": "#superior_lateral_genicular_artery_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_74_superior_lateral_genicular_artery.vtk"
+    },
+    {
+        "@id": "#femoral_cartilage_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_83_femoral_cartilage.vtk"
+    },
+    {
+        "@id": "#Vascular_System",
+        "@type": "Group",
+        "annotation": {
+            "name": "Vascular System"
+        },
+        "member": [
+            "#Veins",
+            "#Arteries"
+        ],
+        "renderOption": {
+            "color": "rgb(182,184,253)"
+        }
+    },
+    {
+        "@id": "#muscular_branches_tibialis_nerve_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_63_muscular_branches_tibialis_nerve.vtk"
+    },
+    {
+        "@id": "#medial_meniscus",
+        "@type": "Structure",
+        "annotation": {
+            "name": "medial meniscus"
+        },
+        "renderOption": {
+            "color": "rgb(200,205,205)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 82,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#medial_meniscus_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#lateral_meniscus_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_81_lateral_meniscus.vtk"
+    },
+    {
+        "@id": "#semitendinosus_tendon",
+        "@type": "Structure",
+        "annotation": {
+            "name": "semitendinosus tendon"
+        },
+        "renderOption": {
+            "color": "rgb(239,219,219)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 47,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#semitendinosus_tendon_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#biceps_femoris_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_15_biceps_femoris_muscle.vtk"
+    },
+    {
+        "@id": "#femoral_cartilage",
+        "@type": "Structure",
+        "annotation": {
+            "name": "femoral cartilage"
+        },
+        "renderOption": {
+            "color": "rgb(179,179,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 83,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#femoral_cartilage_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#muscular_branches_tibialis_nerve",
+        "@type": "Structure",
+        "annotation": {
+            "name": "muscular branches tibialis nerve"
+        },
+        "renderOption": {
+            "color": "rgb(244,225,16)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 63,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#muscular_branches_tibialis_nerve_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#sartorius_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_19_sartorius_muscle.vtk"
+    },
+    {
+        "@id": "#tibial_collateral_ligament_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_34_tibial_collateral_ligament.vtk"
+    },
+    {
+        "@id": "#tibia",
+        "@type": "Structure",
+        "annotation": {
+            "name": "tibia"
+        },
+        "renderOption": {
+            "color": "rgb(196,188,177)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 96,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#tibia_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#popliteus_tendon_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_44_popliteus_tendon.vtk"
+    },
+    {
+        "@id": "#Veins",
+        "@type": "Group",
+        "annotation": {
+            "name": "Veins"
+        },
+        "member": [
+            "#small_saphenous_vein",
+            "#popliteal_vein",
+            "#great_saphenous_vein"
+        ],
+        "renderOption": {
+            "color": "rgb(40,165,255)"
+        }
+    },
+    {
+        "@id": "#great_saphenous_vein_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_77_great_saphenous_vein.vtk"
+    },
+    {
+        "@id": "#Arteries",
+        "@type": "Group",
+        "annotation": {
+            "name": "Arteries"
+        },
+        "member": [
+            "#popliteal_artery",
+            "#middle_genicular_artery",
+            "#superior_medial_genicular_artery",
+            "#superior_lateral_genicular_artery"
+        ],
+        "renderOption": {
+            "color": "rgb(253,98,70)"
+        }
+    },
+    {
+        "@id": "#patella",
+        "@type": "Structure",
+        "annotation": {
+            "name": "patella"
+        },
+        "renderOption": {
+            "color": "rgb(196,188,177)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 98,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#patella_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#medial_tibial_cartilage_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_85_medial_tibial_cartilage.vtk"
+    },
+    {
+        "@id": "#soleus_tendon",
+        "@type": "Structure",
+        "annotation": {
+            "name": "soleus tendon"
+        },
+        "renderOption": {
+            "color": "rgb(239,219,219)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 46,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#soleus_tendon_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#Ligaments",
+        "@type": "Group",
+        "annotation": {
+            "name": "Ligaments"
+        },
+        "member": [
+            "#fibular_collateral_ligament",
+            "#tibial_collateral_ligament",
+            "#anterior_cruciate_ligament",
+            "#posterior_cruciate_ligament",
+            "#patellar_ligament"
+        ],
+        "renderOption": {
+            "color": "rgb(255,253,255)"
+        }
+    },
+    {
+        "@id": "#femur_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_95_femur.vtk"
+    },
+    {
+        "@id": "#fibular_collateral_ligament_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_33_fibular_collateral_ligament.vtk"
+    },
+    {
+        "@id": "#gracilis_tendon_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_48_gracilis_tendon.vtk"
+    },
+    {
+        "@id": "#medial_sural_cutaneous_nerve",
+        "@type": "Structure",
+        "annotation": {
+            "name": "medial sural cutaneous nerve"
+        },
+        "renderOption": {
+            "color": "rgb(244,225,16)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 64,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#medial_sural_cutaneous_nerve_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#small_saphenous_vein_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_78_small_saphenous_vein.vtk"
+    },
+    {
+        "@id": "#biceps_femoris_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "biceps femoris muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 15,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#biceps_femoris_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#fibula",
+        "@type": "Structure",
+        "annotation": {
+            "name": "fibula"
+        },
+        "renderOption": {
+            "color": "rgb(196,188,177)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 97,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#fibula_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#gracilis_tendon",
+        "@type": "Structure",
+        "annotation": {
+            "name": "gracilis tendon"
+        },
+        "renderOption": {
+            "color": "rgb(239,219,219)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 48,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#gracilis_tendon_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#patellar_cartilage_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_86_patellar_cartilage.vtk"
+    },
+    {
+        "@id": "#iliotibial_tract",
+        "@type": "Structure",
+        "annotation": {
+            "name": "iliotibial tract"
+        },
+        "renderOption": {
+            "color": "rgb(239,219,219)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 43,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#iliotibial_tract_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#gracilis_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "gracilis muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 18,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#gracilis_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#adductor_magnus_tendon_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_41_adductor_magnus_tendon.vtk"
+    },
+    {
+        "@id": "#lateral_meniscus",
+        "@type": "Structure",
+        "annotation": {
+            "name": "lateral meniscus"
+        },
+        "renderOption": {
+            "color": "rgb(200,205,205)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 81,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#lateral_meniscus_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#Meniscus",
+        "@type": "Group",
+        "annotation": {
+            "name": "Meniscus"
+        },
+        "member": [
+            "#lateral_meniscus",
+            "#medial_meniscus"
+        ],
+        "renderOption": {
+            "color": "rgb(200,205,202)"
+        }
+    },
+    {
+        "@id": "#middle_genicular_artery_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_75_middle_genicular_artery.vtk"
+    },
+    {
+        "@id": "#biceps_femoris_tendon_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_42_biceps_femoris_tendon.vtk"
+    },
+    {
+        "@id": "#posterior_cruciate_ligament",
+        "@type": "Structure",
+        "annotation": {
+            "name": "posterior cruciate ligament"
+        },
+        "renderOption": {
+            "color": "rgb(255,255,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 32,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#posterior_cruciate_ligament_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#biceps_femoris_tendon",
+        "@type": "Structure",
+        "annotation": {
+            "name": "biceps femoris tendon"
+        },
+        "renderOption": {
+            "color": "rgb(239,219,219)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 42,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#biceps_femoris_tendon_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#tibial_collateral_ligament",
+        "@type": "Structure",
+        "annotation": {
+            "name": "tibial collateral ligament"
+        },
+        "renderOption": {
+            "color": "rgb(255,255,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 34,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#tibial_collateral_ligament_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#adductor_magnus_tendon",
+        "@type": "Structure",
+        "annotation": {
+            "name": "adductor magnus tendon"
+        },
+        "renderOption": {
+            "color": "rgb(239,219,219)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 41,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#adductor_magnus_tendon_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#medial_tibial_cartilage",
+        "@type": "Structure",
+        "annotation": {
+            "name": "medial tibial cartilage"
+        },
+        "renderOption": {
+            "color": "rgb(179,179,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 85,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#medial_tibial_cartilage_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#popliteus_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_22_popliteus_muscle.vtk"
+    },
+    {
+        "@id": "#peroneus_longus_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_26_peroneus_longus_muscle.vtk"
+    },
+    {
+        "@id": "#tibialis_anterior_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "tibialis anterior muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 24,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#tibialis_anterior_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#popliteus_tendon",
+        "@type": "Structure",
+        "annotation": {
+            "name": "popliteus tendon"
+        },
+        "renderOption": {
+            "color": "rgb(239,219,219)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 44,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#popliteus_tendon_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#tibialis_nerve_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_62_tibialis_nerve.vtk"
+    },
+    {
+        "@id": "#popliteus_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "popliteus muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 22,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#popliteus_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#tibialis_nerve",
+        "@type": "Structure",
+        "annotation": {
+            "name": "tibialis nerve"
+        },
+        "renderOption": {
+            "color": "rgb(244,225,16)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 62,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#tibialis_nerve_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#anterior_cruciate_ligament_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_31_anterior_cruciate_ligament.vtk"
+    },
+    {
+        "@id": "#middle_genicular_artery",
+        "@type": "Structure",
+        "annotation": {
+            "name": "middle genicular artery"
+        },
+        "renderOption": {
+            "color": "rgb(253,98,70)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 75,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#middle_genicular_artery_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#semimembranosus_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_16_semimembranosus_muscle.vtk"
+    },
+    {
+        "@id": "#superior_medial_genicular_artery_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_73_superior_medial_genicular_artery.vtk"
+    },
+    {
+        "@id": "#extensor_digitorum_longus_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_25_extensor_digitorum_longus_muscle.vtk"
+    },
+    {
+        "@id": "#lateral_head_gastrocnemius_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "lateral head gastrocnemius muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 21,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#lateral_head_gastrocnemius_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#vastus_lateralis_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_12_vastus_lateralis_muscle.vtk"
+    },
+    {
+        "@id": "#tibia_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_96_tibia.vtk"
+    },
+    {
+        "@id": "#_bgImageSrc0",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/x-nrrd",
+        "source": "Data/I.nrrd"
+    },
+    {
+        "@id": "#Nerves",
+        "@type": "Group",
+        "annotation": {
+            "name": "Nerves"
+        },
+        "member": [
+            "#tibialis_nerve",
+            "#muscular_branches_tibialis_nerve",
+            "#medial_sural_cutaneous_nerve",
+            "#peroneus_nerve"
+        ],
+        "renderOption": {
+            "color": "rgb(244,225,11)"
+        }
+    },
+    {
+        "@id": "#sartorius_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "sartorius muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 19,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#sartorius_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#popliteal_vein_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_72_popliteal_vein.vtk"
+    },
+    {
+        "@id": "#small_saphenous_vein",
+        "@type": "Structure",
+        "annotation": {
+            "name": "small saphenous vein"
+        },
+        "renderOption": {
+            "color": "rgb(40,165,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 78,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#small_saphenous_vein_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#semitendinosus_tendon_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_47_semitendinosus_tendon.vtk"
+    },
+    {
+        "@id": "#gracilis_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_18_gracilis_muscle.vtk"
+    },
+    {
+        "@id": "#tibialis_anterior_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_24_tibialis_anterior_muscle.vtk"
+    },
+    {
+        "@id": "#femur",
+        "@type": "Structure",
+        "annotation": {
+            "name": "femur"
+        },
+        "renderOption": {
+            "color": "rgb(196,188,177)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 95,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#femur_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#_urlBase",
+        "@type": "BaseURL",
+        "url": ""
+    },
+    {
+        "@id": "#soleus_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "soleus muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 23,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#soleus_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#great_saphenous_vein",
+        "@type": "Structure",
+        "annotation": {
+            "name": "great saphenous vein"
+        },
+        "renderOption": {
+            "color": "rgb(40,165,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 77,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#great_saphenous_vein_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#popliteal_vein",
+        "@type": "Structure",
+        "annotation": {
+            "name": "popliteal vein"
+        },
+        "renderOption": {
+            "color": "rgb(40,165,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 72,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#popliteal_vein_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#anterior_cruciate_ligament",
+        "@type": "Structure",
+        "annotation": {
+            "name": "anterior cruciate ligament"
+        },
+        "renderOption": {
+            "color": "rgb(255,255,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 31,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#anterior_cruciate_ligament_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#peroneus_nerve",
+        "@type": "Structure",
+        "annotation": {
+            "name": "peroneus nerve"
+        },
+        "renderOption": {
+            "color": "rgb(244,225,16)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 61,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#peroneus_nerve_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#medial_head_gastrocnemius_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_20_medial_head_gastrocnemius_muscle.vtk"
+    },
+    {
+        "@id": "#infrapatellar_fat_body_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_9_infrapatellar_fat_body.vtk"
+    },
+    {
+        "@id": "#patellar_cartilage",
+        "@type": "Structure",
+        "annotation": {
+            "name": "patellar cartilage"
+        },
+        "renderOption": {
+            "color": "rgb(179,179,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 86,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#patellar_cartilage_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#posterior_cruciate_ligament_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_32_posterior_cruciate_ligament.vtk"
+    },
+    {
+        "@id": "#lateral_tibial_cartilage_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_84_lateral_tibial_cartilage.vtk"
+    },
+    {
+        "@id": "#Fat",
+        "@type": "Group",
+        "annotation": {
+            "name": "Fat"
+        },
+        "member": [
+            "#infrapatellar_fat_body"
+        ],
+        "renderOption": {
+            "color": "rgb(225,230,149)"
+        }
+    },
+    {
+        "@id": "#medial_head_gastrocnemius_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "medial head gastrocnemius muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 20,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#medial_head_gastrocnemius_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#Muscles",
+        "@type": "Group",
+        "annotation": {
+            "name": "Muscles"
+        },
+        "member": [
+            "#semimembranosus_muscle",
+            "#semitendinosus_muscle",
+            "#peroneus_longus_muscle",
+            "#popliteus_muscle",
+            "#soleus_muscle",
+            "#vastus_lateralis_muscle",
+            "#lateral_head_gastrocnemius_muscle",
+            "#biceps_femoris_muscle",
+            "#sartorius_muscle",
+            "#extensor_digitorum_longus_muscle",
+            "#gracilis_muscle",
+            "#medial_head_gastrocnemius_muscle",
+            "#tibialis_anterior_muscle",
+            "#vastus_medialis_muscle"
+        ],
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        }
+    },
+    {
+        "@id": "#superior_medial_genicular_artery",
+        "@type": "Structure",
+        "annotation": {
+            "name": "superior medial genicular artery"
+        },
+        "renderOption": {
+            "color": "rgb(253,98,70)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 73,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#superior_medial_genicular_artery_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#vastus_lateralis_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "vastus lateralis muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 12,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#vastus_lateralis_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#superior_lateral_genicular_artery",
+        "@type": "Structure",
+        "annotation": {
+            "name": "superior lateral genicular artery"
+        },
+        "renderOption": {
+            "color": "rgb(253,98,70)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 74,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#superior_lateral_genicular_artery_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#iliotibial_tract_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_43_iliotibial_tract.vtk"
+    },
+    {
+        "@id": "#lateral_head_gastrocnemius_muscle_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_21_lateral_head_gastrocnemius_muscle.vtk"
+    },
+    {
+        "@id": "#semimembranosus_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "semimembranosus muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 16,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#semimembranosus_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#peroneus_longus_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "peroneus longus muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 26,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#peroneus_longus_muscle_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#fibula_ModelDS",
+        "@type": "DataSource",
+        "baseURL": "#_urlBase",
+        "mimeType": "application/octet-stream",
+        "source": "Data/Model_97_fibula.vtk"
+    },
+    {
+        "@id": "#lateral_tibial_cartilage",
+        "@type": "Structure",
+        "annotation": {
+            "name": "lateral tibial cartilage"
+        },
+        "renderOption": {
+            "color": "rgb(179,179,255)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 84,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#lateral_tibial_cartilage_ModelDS"
+            }
+        ]
+    },
+    {
+        "@id": "#Tendons",
+        "@type": "Group",
+        "annotation": {
+            "name": "Tendons"
+        },
+        "member": [
+            "#soleus_tendon",
+            "#iliotibial_tract",
+            "#popliteus_tendon",
+            "#biceps_femoris_tendon",
+            "#adductor_magnus_tendon",
+            "#semitendinosus_tendon",
+            "#gracilis_tendon"
+        ],
+        "renderOption": {
+            "color": "rgb(239,219,219)"
+        }
+    },
+    {
+        "@id": "#extensor_digitorum_longus_muscle",
+        "@type": "Structure",
+        "annotation": {
+            "name": "extensor digitorum longus muscle"
+        },
+        "renderOption": {
+            "color": "rgb(230,124,124)"
+        },
+        "sourceSelector": [
+            {
+                "@type": [
+                    "Selector",
+                    "LabelMapSelector"
+                ],
+                "authoritative": true,
+                "dataKey": 25,
+                "dataSource": "#_LabelDS"
+            },
+            {
+                "@type": [
+                    "Selector",
+                    "GeometrySelector"
+                ],
+                "authoritative": false,
+                "dataSource": "#extensor_digitorum_longus_muscle_ModelDS"
+            }
+        ]
+    }
+]
