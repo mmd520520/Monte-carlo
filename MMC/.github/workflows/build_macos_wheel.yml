@@ -1,0 +1,150 @@
+name: Build+Upload MacOS Python Wheels
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - master
+
+
+jobs:
+  build_macos_wheels:
+    name: Build macOS wheels
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-15]
+        python_version: [ '3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', 'pypy3.7', 'pypy3.8', 'pypy3.9', 'pypy3.10' ]
+        exclude:
+          - os: macos-15
+            python_version: 3.6
+          - os: macos-15
+            python_version: 3.7
+          - os: macos-15
+            python_version: pypy3.7
+    outputs:
+      perform_pypi_upload: ${{ steps.perform_pypi_upload_check.outputs.perform_pypi_upload }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - name: Update RCS keywords
+        shell: bash
+        run: |
+          printf '\n[filter "rcs-keywords"]\n\tclean  = .git_filters/rcs-keywords.clean\n\tsmudge = .git_filters/rcs-keywords.smudge %f\n' >> .git/config
+          rm -rf src/*.c
+          git checkout src/*.c
+      - name: Update pybind11 for specific python version
+        if: ${{ matrix.python-version == '3.13' }}
+        shell: bash
+        run: |
+          git submodule update --init --remote .
+          cd src/pybind11
+          git fetch --tags
+          git checkout v3.0.0
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python_version }}
+      - name: Select Supported XCode Version + Link OpenMP
+        run: |
+          brew install libomp
+          brew link --force libomp
+      - name: Link libgomp.a (MacOS only)
+        if: ${{ runner.os == 'macOS' && matrix.os != 'macos-15' }}
+        run: |
+          sudo ln -s /usr/local/lib/gcc/11/libgomp.a /usr/local/lib/libgomp.a
+          ln -sf /usr/local/opt/libomp/include/*.h src/pybind11/include
+      - name: Link libgomp headers (MacOS only)
+        if: ${{ runner.os == 'macOS' && matrix.os == 'macos-15' }}
+        run: |
+          ln -sf /opt/homebrew/opt/libomp/include/*.h src/pybind11/include
+      - name: Tag wheels with the runner architecture
+        run: |
+          # setup-python's CPython 3.11+ is a universal2 build, so without this every wheel was
+          # tagged universal2 while holding only the runner's own arch, and pip on Apple Silicon
+          # with macOS 15 picked the x86_64-only one
+          # deployment target: the oldest macOS for each arch (11.0 introduced arm64), not the
+          # runner's; Python <= 3.7 on macOS 11+ reports the OS as 10.16, so its pip rejects
+          # wheels tagged macosx_11_0 or newer for x86_64
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "arm64" ]; then OSVER=11.0; else OSVER=10.15; fi
+          echo "ARCHFLAGS=-arch $ARCH" >> $GITHUB_ENV
+          echo "MACOSX_DEPLOYMENT_TARGET=$OSVER" >> $GITHUB_ENV
+          echo "_PYTHON_HOST_PLATFORM=macosx-$OSVER-$ARCH" >> $GITHUB_ENV
+      - name: Build Wheels
+        run: |
+          cd pmmc/
+          pip install wheel
+          VERBOSE=1 pip wheel . -w ../dist/
+          ls ../dist/
+          cd ../
+      - name: Check wheel architecture and import
+        run: |
+          ARCH=$(uname -m)
+          for whl in dist/pmmc-*.whl; do
+            case "$whl" in *_$ARCH.whl) ;; *) echo "wheel $whl is not tagged $ARCH"; exit 1 ;; esac
+            rm -rf whlcheck && mkdir whlcheck && (cd whlcheck && unzip -q "../$whl")
+            for so in whlcheck/_pmmc*.so; do
+              archs=$(lipo -archs "$so")
+              echo "$so: $archs"
+              [ "$archs" = "$ARCH" ] || { echo "binary arch $archs does not match $ARCH"; exit 1; }
+              minos=$(otool -l "$so" | awk '/minos|version [0-9]/{print $2; exit}')
+              echo "$so: minimum macOS $minos"
+              [ "$minos" = "$MACOSX_DEPLOYMENT_TARGET" ] || { echo "binary needs macOS $minos, not $MACOSX_DEPLOYMENT_TARGET"; exit 1; }
+            done
+          done
+          pip install --no-deps --force-reinstall dist/pmmc-*.whl
+          (cd /tmp && python -c "import _pmmc; print('imported _pmmc', _pmmc.__file__)")
+      - name: Check If the Build Version Exists on PyPI
+        id: perform_pypi_upload_check
+        run: |
+          bash $GITHUB_WORKSPACE/.github/check-pypi-upload.sh
+      - name: Prepare Wheels for Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-wheels-${{ matrix.os }}-${{ matrix.python_version }}
+          path: dist/
+
+  upload_macos_x86_wheels:
+    needs: build_macos_wheels
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'fangq' && github.actor == 'fangq' && needs.build_macos_wheels.outputs.perform_pypi_upload == 1 && github.event_name != 'pull_request'}}
+    steps:
+      - name: Download Wheels from Build Job
+        uses: actions/download-artifact@v4
+        with:
+          pattern: macos-wheels-macos-15-intel-*
+          merge-multiple: true
+          path: dist/
+      - name: Upload packages to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          verify_metadata: false
+          verbose: true
+          skip_existing: true
+
+  upload_macos_arm64_wheels:
+    needs: build_macos_wheels
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'fangq' && github.actor == 'fangq' && needs.build_macos_wheels.outputs.perform_pypi_upload == 1 && github.event_name != 'pull_request'}}
+    steps:
+      - name: Download Wheels from Build Job
+        uses: actions/download-artifact@v4
+        with:
+          pattern: macos-wheels-macos-15-*
+          merge-multiple: true
+          path: dist/
+      - name: Upload packages to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          verify_metadata: false
+          verbose: true
+          skip_existing: true

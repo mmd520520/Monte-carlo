@@ -1,0 +1,3182 @@
+/***************************************************************************//**
+**  \mainpage Mesh-based Monte Carlo (MMC) - a 3D photon simulator
+**
+**  \author Qianqian Fang <q.fang at neu.edu>
+**  \copyright Qianqian Fang, 2010-2026
+**
+**  \section sref Reference:
+**  \li \c (\b Fang2010) Qianqian Fang, <a href="http://www.opticsinfobase.org/abstract.cfm?uri=boe-1-1-165">
+**          "Mesh-based Monte Carlo Method Using Fast Ray-Tracing
+**          in Plucker Coordinates,"</a> Biomed. Opt. Express, 1(1) 165-175 (2010).
+**  \li \c (\b Fang2012) Qianqian Fang and David R. Kaeli,
+**           <a href="https://www.osapublishing.org/boe/abstract.cfm?uri=boe-3-12-3223">
+**          "Accelerating mesh-based Monte Carlo method on modern CPU architectures,"</a>
+**          Biomed. Opt. Express 3(12), 3223-3230 (2012)
+**  \li \c (\b Yao2016) Ruoyang Yao, Xavier Intes, and Qianqian Fang,
+**          <a href="https://www.osapublishing.org/boe/abstract.cfm?uri=boe-7-1-171">
+**          "Generalized mesh-based Monte Carlo for wide-field illumination and detection
+**           via mesh retessellation,"</a> Biomed. Optics Express, 7(1), 171-184 (2016)
+**  \li \c (\b Fang2019) Qianqian Fang and Shijie Yan,
+**          <a href="http://dx.doi.org/10.1117/1.JBO.24.11.115002">
+**          "Graphics processing unit-accelerated mesh-based Monte Carlo photon transport
+**           simulations,"</a> J. of Biomedical Optics, 24(11), 115002 (2019)
+**  \li \c (\b Yuan2021) Yaoshen Yuan, Shijie Yan, and Qianqian Fang,
+**          <a href="https://www.osapublishing.org/boe/fulltext.cfm?uri=boe-12-1-147">
+**          "Light transport modeling in highly complex tissues using the implicit
+**           mesh-based Monte Carlo algorithm,"</a> Biomed. Optics Express, 12(1) 147-161 (2021)
+**
+**  \section slicense License
+**          GPL v3, see LICENSE.txt for details
+*******************************************************************************/
+
+/***************************************************************************//**
+\file    mmc_mesh.c
+
+\brief   Basic vector math and mesh operations
+*******************************************************************************/
+
+#include <stdlib.h>
+#include "mmc_const.h"
+#include "mmc_mesh.h"
+#include <string.h>
+#include "mmc_highorder.h"
+
+#ifdef WIN32
+    char pathsep = '\\'; /**< path separator on Windows */
+#else
+    char pathsep = '/'; /**< path separator on Linux/Unix/OSX */
+#endif
+
+/**
+ * \brief Tetrahedron faces, in counter-clock-wise orders, represented using local node indices
+ *
+ * node-connectivity, i.e. nc[4] points to the 4 facets of a tetrahedron, with each
+ * triangular face made of 3 nodes. The numbers [0-4] are the
+ * local node indices (starting from 0). The order of the nodes
+ * are in counter-clock-wise orders.
+ */
+
+const int out[4][3] = {{0, 3, 1}, {3, 2, 1}, {0, 2, 3}, {0, 1, 2}};
+
+/**
+ * \brief The local index of the node with an opposite face to the i-th face defined in nc[][]
+ *
+ * nc[i] <-> node[facemap[i]]
+ * the 1st face of this tet, i.e. nc[0]={3,0,1}, is opposite to the 3rd node
+ * the 2nd face of this tet, i.e. nc[1]={3,1,2}, is opposite to the 1st node
+ * etc.
+ */
+
+const int facemap[] = {2, 0, 1, 3};
+
+/**
+ * \brief Inverse mapping between the local index of the node and the corresponding opposite face in nc[]'s order
+ *
+ * nc[ifacemap[i]] <-> node[i]
+ * the 1st node of this tet is in opposite to the 2nd face, i.e. nc[1]={3,1,2}
+ * the 2nd node of this tet is in opposite to the 3rd face, i.e. nc[1]={2,0,3}
+ * etc.
+ */
+
+const int ifacemap[] = {1, 2, 0, 3};
+
+/**
+ * \brief Index mapping from the i-th face-neighbors (facenb) to the face defined in nc[][]
+ *
+ * facenb[i] <-> nc[faceorder[i]]
+ * the 1st tet neighbor shares the 2nd face of this tet, i.e. nc[1]={3,1,2}
+ * the 2nd tet neighbor shares the 4th face of this tet, i.e. nc[3]={1,0,2}
+ * etc.
+ */
+
+const int faceorder[] = {1, 3, 2, 0, -1};
+
+/**
+ * \brief Index mapping from the i-th face defined in nc[][] to the face-neighbor (facenb) face orders
+ *
+ * nc[ifaceorder[i]] <-> facenb[i]
+ * nc[0], made of nodes {3,0,1}, is the face connecting to the 4th neighbor (facenb[3]),
+ * nc[1], made of nodes {3,1,2}, is the face connecting to the 1st neighbor (facenb[0]),
+ * etc.
+ */
+
+const int ifaceorder[] = {3, 0, 2, 1};
+
+/**
+ * @brief Initializing the mesh data structure with default values
+ *
+ * Constructor of the mesh object, initializing all field to default values
+ */
+
+
+void mesh_init(tetmesh* mesh) {
+    mesh->nn = 0;
+    mesh->ne = 0;
+    mesh->nf = 0;
+    mesh->prop = 0;
+    mesh->elemlen = 4;
+    mesh->node = NULL;
+    mesh->elem = NULL;
+    mesh->elem2 = NULL;
+    mesh->edgeroi = NULL;
+    mesh->faceroi = NULL;
+    mesh->noderoi = NULL;
+    mesh->roioff = NULL;
+    mesh->roilist = NULL;
+    mesh->nroiprim = 0;
+    mesh->roieps = EPS;
+    mesh->nslab1 = 0;
+    mesh->srcelemlen = 0;
+    mesh->srcelem = NULL;
+    mesh->detelemlen = 0;
+    mesh->detelem = NULL;
+    mesh->facenb = NULL;
+    mesh->type = NULL;
+    mesh->med = NULL;
+    mesh->weight = NULL;
+    mesh->evol = NULL;
+    mesh->nvol = NULL;
+    mesh->deldotdel = NULL;
+    mesh->dref = NULL;
+    mesh->nmin.x = VERY_BIG;
+    mesh->nmin.y = VERY_BIG;
+    mesh->nmin.z = VERY_BIG;
+    mesh->nmin.w = 1.f;
+    mesh->nmax.x = -VERY_BIG;
+    mesh->nmax.y = -VERY_BIG;
+    mesh->nmax.z = -VERY_BIG;
+    mesh->nmax.w = 1.f;
+    mesh->nface = 0;
+    mesh->fnode = NULL;
+    mesh->fnorm = NULL;
+    mesh->face = NULL;
+    mesh->front = NULL;
+    mesh->back = NULL;
+}
+
+
+/**
+ * @brief Clearing the mesh data structure
+ *
+ * Destructor of the mesh data structure, delete all dynamically allocated members
+ */
+
+
+void mesh_clear(tetmesh* mesh, mcconfig* cfg) {
+    mesh->nn = 0;
+    mesh->ne = 0;
+    mesh->nf = 0;
+    mesh->srcelemlen = 0;
+    mesh->detelemlen = 0;
+
+    if (mesh->node && cfg->node == NULL) {
+        free(mesh->node);
+        mesh->node = NULL;
+    }
+
+    if (mesh->elem) {
+        free(mesh->elem);
+        mesh->elem = NULL;
+    }
+
+    if (mesh->elem2) {
+        free(mesh->elem2);
+        mesh->elem2 = NULL;
+    }
+
+    if (mesh->facenb) {
+        free(mesh->facenb);
+        mesh->facenb = NULL;
+    }
+
+    if (mesh->dref) {
+        free(mesh->dref);
+        mesh->dref = NULL;
+    }
+
+    if (mesh->type) {
+        free(mesh->type);
+        mesh->type = NULL;
+    }
+
+    if (mesh->med) {
+        free(mesh->med);
+        mesh->med = NULL;
+    }
+
+    if (mesh->weight) {
+        free(mesh->weight);
+        mesh->weight = NULL;
+    }
+
+    if (mesh->evol) {
+        free(mesh->evol);
+        mesh->evol = NULL;
+    }
+
+    if (mesh->deldotdel) {
+        free(mesh->deldotdel);
+        mesh->deldotdel = NULL;
+    }
+
+    if (mesh->nvol) {
+        free(mesh->nvol);
+        mesh->nvol = NULL;
+    }
+
+    if (mesh->srcelem) {
+        free(mesh->srcelem);
+        mesh->srcelem = NULL;
+    }
+
+    if (mesh->detelem) {
+        free(mesh->detelem);
+        mesh->detelem = NULL;
+    }
+
+    if (mesh->noderoi) {
+        free(mesh->noderoi);
+        mesh->noderoi = NULL;
+    }
+
+    if (mesh->edgeroi) {
+        free(mesh->edgeroi);
+        mesh->edgeroi = NULL;
+    }
+
+    if (mesh->faceroi) {
+        free(mesh->faceroi);
+        mesh->faceroi = NULL;
+    }
+
+    free(mesh->roioff);
+    free(mesh->roilist);
+    mesh->roioff = NULL;
+    mesh->roilist = NULL;
+    mesh->nroiprim = 0;
+
+    /* the OptiX triangle surface */
+    free(mesh->fnode);
+    free(mesh->fnorm);
+    free(mesh->face);
+    free(mesh->front);
+    free(mesh->back);
+    mesh->fnode = NULL;
+    mesh->fnorm = NULL;
+    mesh->face = NULL;
+    mesh->front = NULL;
+    mesh->back = NULL;
+    mesh->nface = 0;
+}
+
+/**
+ * @brief Per-medium chain-rule factors converting the adjoint J_D into J_mus or J_musp, as mcx does
+ *
+ * With D = 1/(3*(1-g)*mus): J_mus = J_D * 3*D^2*(1-g) = J_D / (3*(1-g)*mus^2) and
+ * J_musp = J_D * 3*D^2 = J_D / (3*(1-g)^2*mus^2). The GPU adjoint kernels multiply J_D by the
+ * factor of each element's label (mesh mode) or of the label recorded in each voxel during the
+ * simulation (grid mode); a medium with mus=0 or g=1 gets 0.
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] ismusp: 1 for J_musp, 0 for J_mus
+ * @return a malloc-ed table of prop+1 factors, indexed by the medium label
+ */
+
+float* mesh_getmusscale(tetmesh* mesh, int ismusp) {
+    float* scale = (float*)calloc(mesh->prop + 1, sizeof(float));
+
+    for (int i = 1; i <= mesh->prop; i++) {
+        float mus = mesh->med[i].mus, onemg = 1.f - mesh->med[i].g;
+
+        if (mus > 0.f && onemg > 0.f) {
+            scale[i] = ismusp ? 1.f / (3.f * onemg * onemg * mus * mus) : 1.f / (3.f * onemg * mus * mus);
+        }
+    }
+
+    return scale;
+}
+
+/**
+ * @brief Build the OptiX triangle surface from a surface-only mesh (Mesh.MeshSurf)
+ *
+ * Each row of cfg->surf holds the 3 node indices (1-based) of a triangle, the label of its
+ * inner (back) side and that of its outer (front) side, the same data that tracer_prep
+ * extracts from a tetrahedral mesh: the normal (v1-v0)x(v2-v0) points from the inner to the
+ * outer side, and labels <= 0 are the ambient medium. A surface that is not closed, i.e. an
+ * edge not shared by an even number of triangles, is reported as a warning.
+ *
+ * @param[in] mesh: the mesh object, with the nodes and media loaded
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void mesh_loadsurf(tetmesh* mesh, mcconfig* cfg) {
+    unsigned int i, j, nopen = 0;
+    FLOAT3 vec01, vec02, vnorm;
+
+    mesh->nface = cfg->surfnum;
+    mesh->fnode = (FLOAT3*)malloc(mesh->nn * sizeof(FLOAT3));
+    mesh->face = (uint3*)malloc(mesh->nface * sizeof(uint3));
+    mesh->fnorm = (FLOAT3*)malloc(mesh->nface * sizeof(FLOAT3));
+    mesh->front = (uint*)malloc(mesh->nface * sizeof(uint));
+    mesh->back = (uint*)malloc(mesh->nface * sizeof(uint));
+
+    for (i = 0; i < (unsigned int)mesh->nn; i++) {
+        mesh->fnode[i].x = mesh->node[i].x;
+        mesh->fnode[i].y = mesh->node[i].y;
+        mesh->fnode[i].z = mesh->node[i].z;
+    }
+
+    for (i = 0; i < mesh->nface; i++) {
+        int* row = cfg->surf + i * 5;
+        int inner = MAX(row[3], 0), outer = MAX(row[4], 0);
+
+        for (j = 0; j < 3; j++) {
+            if (row[j] < 1 || row[j] > mesh->nn) {
+                MESH_ERROR("Mesh.MeshSurf has a node index out of range");
+            }
+        }
+
+        if (inner > mesh->prop || outer > mesh->prop) {
+            MESH_ERROR("Mesh.MeshSurf has a label larger than the number of media");
+        }
+
+        if (inner == outer) {
+            MESH_ERROR("Mesh.MeshSurf has a triangle with the same inner and outer labels");
+        }
+
+        mesh->face[i].x = row[0] - 1;
+        mesh->face[i].y = row[1] - 1;
+        mesh->face[i].z = row[2] - 1;
+        mesh->back[i] = inner;
+        mesh->front[i] = outer;
+
+        vec_diff((float3*)(mesh->fnode + mesh->face[i].x), (float3*)(mesh->fnode + mesh->face[i].y), (float3*)&vec01);
+        vec_diff((float3*)(mesh->fnode + mesh->face[i].x), (float3*)(mesh->fnode + mesh->face[i].z), (float3*)&vec02);
+        vec_cross((float3*)&vec01, (float3*)&vec02, (float3*)&vnorm);
+        float mag = sqrtf(vec_dot((float3*)&vnorm, (float3*)&vnorm));
+
+        if (mag <= 0.f) {
+            MESH_ERROR("Mesh.MeshSurf has a degenerate (zero-area) triangle");
+        }
+
+        vec_mult((float3*)&vnorm, 1.f / mag, (float3*)&vnorm);
+        mesh->fnorm[i] = vnorm;
+    }
+
+    /* closedness check: count the triangles sharing each edge, with the edges sorted as
+       (min node, max node) pairs */
+    {
+        unsigned long long* edges = (unsigned long long*)malloc(sizeof(unsigned long long) * mesh->nface * 3);
+        const int pairs[3][2] = {{0, 1}, {1, 2}, {2, 0}};
+
+        for (i = 0; i < mesh->nface; i++) {
+            unsigned int v[3] = {mesh->face[i].x, mesh->face[i].y, mesh->face[i].z};
+
+            for (j = 0; j < 3; j++) {
+                unsigned long long a = v[pairs[j][0]], b = v[pairs[j][1]];
+                edges[i * 3 + j] = (a < b) ? ((a << 32) | b) : ((b << 32) | a);
+            }
+        }
+
+        qsort(edges, mesh->nface * 3, sizeof(unsigned long long), mesh_compareu64);
+
+        for (i = 0; i < mesh->nface * 3;) {
+            j = i;
+
+            while (j < mesh->nface * 3 && edges[j] == edges[i]) {
+                j++;
+            }
+
+            nopen += ((j - i) & 1);
+            i = j;
+        }
+
+        free(edges);
+    }
+
+    if (nopen) {
+        MMC_FPRINTF(cfg->flog, S_RED "WARNING: Mesh.MeshSurf is not closed, %u edges are not shared by an even number of triangles\n" S_RESET, nopen);
+    }
+}
+
+/** comparison of two unsigned 64-bit integers for qsort */
+int mesh_compareu64(const void* a, const void* b) {
+    unsigned long long x = *(const unsigned long long*)a, y = *(const unsigned long long*)b;
+    return (x > y) - (x < y);
+}
+
+
+#ifndef MCX_CONTAINER
+
+/**
+ * @brief Loading user-specified mesh data
+ *
+ * Loading node, element etc from files into memory
+ */
+
+void mesh_init_from_cfg(tetmesh* mesh, mcconfig* cfg) {
+    int issurfonly = (cfg->surf && cfg->surfnum > 0 && cfg->elemnum == 0);
+
+    if (issurfonly && (cfg->compute != cbOptiX || cfg->method != rtBLBadouelGrid)) {
+        MESH_ERROR("a surface-only mesh (Mesh.MeshSurf without MeshElem) requires --compute optix and -M G (dual-grid output)");
+    }
+
+    mesh_init(mesh);
+    mesh_loadnode(mesh, cfg);
+    mesh_loadelem(mesh, cfg);
+    mesh_loadmedia(mesh, cfg);
+    mesh_checkelem(mesh, cfg);
+
+    if (issurfonly) {
+        cfg->e0 = -1;  /* no elements: the OptiX kernel finds the initial medium by tracing a ray */
+        mesh_loadsurf(mesh, cfg);
+    }
+
+    if (cfg->isdumpjson == 1) {
+        int i, j, *elem = NULL;
+
+        if (cfg->medianum == 0) {
+            cfg->medianum = mesh->prop + 1;
+            cfg->prop = mesh->med;
+        }
+
+        if (cfg->nodenum == 0 && cfg->elemnum == 0) {
+            cfg->nodenum = mesh->nn;
+            cfg->elemnum = mesh->ne;
+            cfg->elemlen = mesh->elemlen;
+            cfg->node = mesh->node;
+            elem = (int*)malloc(mesh->ne * (mesh->elemlen + 1) * sizeof(int));
+
+            for (i = 0; i < mesh->ne; i++) {
+                for (j = 0; j < mesh->elemlen; j++) {
+                    elem[i * (mesh->elemlen + 1) + j] = mesh->elem[i * mesh->elemlen + j];
+                }
+
+                elem[i * (mesh->elemlen + 1) + mesh->elemlen] = mesh->type[i];
+            }
+
+            /* mesh_srcdetelem relabeled the wide-field source (-1) and detector (-2) elements;
+               restore their labels so that the saved mesh keeps the source/detector domains */
+            for (i = 0; i < mesh->srcelemlen; i++) {
+                elem[(mesh->srcelem[i] - 1) * (mesh->elemlen + 1) + mesh->elemlen] = -1;
+            }
+
+            for (i = 0; i < mesh->detelemlen; i++) {
+                elem[(mesh->detelem[i] - 1) * (mesh->elemlen + 1) + mesh->elemlen] = -2;
+            }
+
+            cfg->elem = elem;
+        }
+
+        mcx_savejdata(cfg->jsonfile, cfg);
+
+        if (elem) {
+            free(elem);
+        }
+
+        exit(0);
+    }
+
+    if (issurfonly) {
+        return;  /* the element-based data below are not needed by the OptiX surface tracer */
+    }
+
+    if (cfg->basisorder == 2) {
+        mesh_10nodetet(mesh, cfg);
+    }
+
+    mesh_loadroi(mesh, cfg);       /* before mesh_getvolume(), which reorients elements with their ROI columns */
+    mesh_loadelemvol(mesh, cfg);
+    mesh_loadfaceneighbor(mesh, cfg);
+
+    if (cfg->seed == SEED_FROM_FILE && cfg->seedfile[0]) {
+        mesh_loadseedfile(mesh, cfg);
+    }
+}
+
+#endif
+
+/**
+ * @brief Error-handling in mesh operations
+ *
+ * @param[in] msg: the error message string
+ * @param[in] file: the unit file name where this error is raised
+ * @param[in] linenum: the line number in the file where this error is raised
+ */
+
+void mesh_error(const char* msg, const char* file, const int linenum) {
+#ifdef MCX_CONTAINER
+    mmc_defer_error(1, msg, file, linenum);  /* raised again after a parallel region, see mmc_utils.h */
+    mmc_throw_exception(1, msg, file, linenum);
+#else
+    fprintf(stderr, "Mesh error: %s in unit %s line#%d\n", msg, file, linenum);
+    exit(1);
+#endif
+}
+
+/**
+ * @brief Construct a full mesh file name using cfg session and root path
+ *
+ * @param[in] format: a format string to form the file name
+ * @param[in] foutput: pointer to the output string buffer
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void mesh_filenames(const char* format, char* foutput, mcconfig* cfg) {
+    char filename[MAX_PATH_LENGTH];
+    sprintf(filename, format, cfg->meshtag);
+
+    if (cfg->rootpath[0]) {
+        sprintf(foutput, "%s%c%s", cfg->rootpath, pathsep, filename);
+    } else {
+        sprintf(foutput, "%s", filename);
+    }
+}
+
+void mesh_createdualmesh(tetmesh* mesh, mcconfig* cfg) {
+    int i;
+    mesh->nmin.x = VERY_BIG;
+    mesh->nmin.y = VERY_BIG;
+    mesh->nmin.z = VERY_BIG;
+    mesh->nmax.x = -VERY_BIG;
+    mesh->nmax.y = -VERY_BIG;
+    mesh->nmax.z = -VERY_BIG;
+
+    for (i = 0; i < mesh->nn; i++) {
+        mesh->nmin.x = MIN(mesh->node[i].x, mesh->nmin.x);
+        mesh->nmin.y = MIN(mesh->node[i].y, mesh->nmin.y);
+        mesh->nmin.z = MIN(mesh->node[i].z, mesh->nmin.z);
+        mesh->nmax.x = MAX(mesh->node[i].x, mesh->nmax.x);
+        mesh->nmax.y = MAX(mesh->node[i].y, mesh->nmax.y);
+        mesh->nmax.z = MAX(mesh->node[i].z, mesh->nmax.z);
+    }
+
+    mesh->nmin.x -= EPS;
+    mesh->nmin.y -= EPS;
+    mesh->nmin.z -= EPS;
+    mesh->nmax.x += EPS;
+    mesh->nmax.y += EPS;
+    mesh->nmax.z += EPS;
+
+    cfg->dim.x = (int)((mesh->nmax.x - mesh->nmin.x) / cfg->steps.x) + 1;
+    cfg->dim.y = (int)((mesh->nmax.y - mesh->nmin.y) / cfg->steps.y) + 1;
+    cfg->dim.z = (int)((mesh->nmax.z - mesh->nmin.z) / cfg->steps.z) + 1;
+
+    cfg->crop0.x = cfg->dim.x;
+    cfg->crop0.y = cfg->dim.y * cfg->dim.x;
+    cfg->crop0.z = cfg->dim.y * cfg->dim.x * cfg->dim.z;
+}
+
+/**
+ * @brief Identify wide-field source and detector-related elements (type=-1 for source, type=-2 for det)
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+/* 1 if the bounding box of element i overlaps the box lo-hi */
+static int mesh_inbox(tetmesh* mesh, int i, const float lo[3], const float hi[3]) {
+    int* ee = mesh->elem + i * mesh->elemlen;
+    int j, k;
+
+    for (k = 0; k < 3; k++) {
+        float emin = (&mesh->node[ee[0] - 1].x)[k], emax = emin;
+
+        for (j = 1; j < 4; j++) {
+            float v = (&mesh->node[ee[j] - 1].x)[k];
+            emin = MIN(emin, v);
+            emax = MAX(emax, v);
+        }
+
+        if (emax < lo[k] || emin > hi[k]) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+void mesh_srcdetelem(tetmesh* mesh, mcconfig* cfg) {
+    int i;
+
+    /* a pattern3d, line or slit source launches photons anywhere in its box or along its segment,
+       but the launch searched only the initial element and the -1 elements, so a source larger
+       than one element failed (CPU) or crashed (GPU); the elements overlapping its bounding box
+       are added to the search list, keeping their labels */
+    int isextended = ((cfg->srctype == stPattern3D || cfg->srctype == stLine || cfg->srctype == stSlit) && mesh->node && mesh->elem);
+    float lo[3], hi[3];
+
+    if (isextended) {
+        float p0[3] = {cfg->srcpos.x, cfg->srcpos.y, cfg->srcpos.z};
+        float dp[3] = {cfg->srcparam1.x, cfg->srcparam1.y, cfg->srcparam1.z};
+
+        for (i = 0; i < 3; i++) {
+            lo[i] = MIN(p0[i], p0[i] + dp[i]);
+            hi[i] = MAX(p0[i], p0[i] + dp[i]);
+        }
+    }
+
+    mesh->srcelemlen = 0;
+    mesh->detelemlen = 0;
+
+    for (i = 0; i < mesh->ne; i++) {
+        if (mesh->type[i] == -1) { /*number of elements in the initial candidate list*/
+            mesh->srcelemlen++;
+            cfg->e0 = (cfg->e0 == 0) ? i + 1 : cfg->e0;
+        } else if (isextended && mesh->type[i] > 0 && mesh_inbox(mesh, i, lo, hi)) {
+            mesh->srcelemlen++;
+        }
+
+        if (mesh->type[i] == -2) { /*number of elements in the initial candidate list*/
+            mesh->detelemlen++;
+            cfg->isextdet = 1;
+            cfg->detnum = 0; // when detecting wide-field detectors, suppress point detectors
+        }
+    }
+
+    /*Record the index of inital elements to initiate source search*/
+    /*Then change the type of initial elements back to 0 to continue propogation*/
+    if (mesh->srcelemlen > 0 ||  mesh->detelemlen > 0) {
+        int is = 0, id = 0;
+        mesh->srcelem = (int*)calloc(mesh->srcelemlen, sizeof(int));
+        mesh->detelem = (int*)calloc(mesh->detelemlen, sizeof(int));
+
+        for (i = 0; i < mesh->ne; i++) {
+            if (mesh->type[i] < 0) {
+                if (mesh->type[i] == -1) {
+                    mesh->srcelem[is++] = i + 1;
+                    mesh->type[i] = 0;
+                } else if (mesh->type[i] == -2) { /*keep -2, will be replaced to medianum+1 in loadmedia*/
+                    mesh->detelem[id++] = i + 1;
+                }
+            } else if (isextended && mesh->type[i] > 0 && mesh_inbox(mesh, i, lo, hi)) {
+                mesh->srcelem[is++] = i + 1;
+            }
+        }
+    }
+}
+
+
+#ifndef MCX_CONTAINER
+
+/**
+ * @brief Load node file and initialize the related mesh properties
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void mesh_loadnode(tetmesh* mesh, mcconfig* cfg) {
+    FILE* fp;
+    int tmp, len, i;
+    char fnode[MAX_FULL_PATH];
+
+    if (cfg->node && cfg->nodenum > 0) {
+        mesh->node = cfg->node;
+        mesh->nn = cfg->nodenum;
+
+        if (cfg->method == rtBLBadouelGrid) {
+            mesh_createdualmesh(mesh, cfg);
+        }
+
+        return;
+    }
+
+    mesh_filenames("node_%s.dat", fnode, cfg);
+
+    if ((fp = fopen(fnode, "rt")) == NULL) {
+        MESH_ERROR("can not open node file");
+    }
+
+    len = fscanf(fp, "%d %d", &tmp, &(mesh->nn));
+
+    if (len != 2 || mesh->nn <= 0) {
+        MESH_ERROR("node file has wrong format");
+    }
+
+    mesh->node = (FLOAT3*)calloc(sizeof(FLOAT3), mesh->nn);
+
+    for (i = 0; i < mesh->nn; i++) {
+        if (fscanf(fp, "%d %f %f %f", &tmp, &(mesh->node[i].x), &(mesh->node[i].y), &(mesh->node[i].z)) != 4) {
+            MESH_ERROR("node file has wrong format");
+        }
+    }
+
+    fclose(fp);
+
+    if (cfg->method == rtBLBadouelGrid) {
+        mesh_createdualmesh(mesh, cfg);
+    }
+}
+
+/**
+ * @brief Checks a loaded mesh before anything indexes with it
+ *
+ * Every element's node numbers are used to index the node arrays, and its
+ * label to index the media and the per-medium tallies, with no check at the
+ * point of use -- so an element naming a node past the end, or a label past
+ * the media given, is read and written out of bounds in the volume, face and
+ * ray-tracing code.  An embedded MeshNode/MeshElem is whatever the input says,
+ * so it is checked here, once, where the message can say what is wrong.
+ *
+ * @param[in] mesh: the mesh object, with nodes, elements and media loaded
+ * @param[in] cfg: the simulation configuration
+ */
+
+void mesh_checkelem(tetmesh* mesh, mcconfig* cfg) {
+    int i, j;
+    char msg[MAX_PATH_LENGTH];
+
+    for (i = 0; i < mesh->nn; i++) {
+        if (!isfinite(mesh->node[i].x) || !isfinite(mesh->node[i].y) || !isfinite(mesh->node[i].z)) {
+            snprintf(msg, MAX_PATH_LENGTH, "node %d has a coordinate that is not a finite number", i + 1);
+            MESH_ERROR(msg);
+        }
+    }
+
+    for (i = 0; i < mesh->ne; i++) {
+        for (j = 0; j < mesh->elemlen; j++) {
+            int nid = mesh->elem[i * mesh->elemlen + j];
+
+            if (nid < 1 || nid > mesh->nn) {
+                snprintf(msg, MAX_PATH_LENGTH, "element %d refers to node %d, but the mesh has %d nodes", i + 1, nid, mesh->nn);
+                MESH_ERROR(msg);
+            }
+        }
+
+        /* -1 and -2 mark source and detector elements; mesh_loadmedia has
+           already renumbered the detector ones to prop+1, the extra medium
+           it allocates for a wide-field detector */
+        if (mesh->type[i] < -2 || mesh->type[i] > mesh->prop + cfg->isextdet) {
+            snprintf(msg, MAX_PATH_LENGTH, "element %d has label %d, but only media 1 to %d are defined", i + 1, mesh->type[i], mesh->prop);
+            MESH_ERROR(msg);
+        }
+    }
+
+    if (mesh->ne == 0 && cfg->compute != cbOptiX) {    /* only OptiX traces a surface-only mesh */
+        MESH_ERROR("the mesh has no elements (MeshElem)");
+    }
+
+    if (mesh->ne > 0 && cfg->e0 > mesh->ne) {
+        snprintf(msg, MAX_PATH_LENGTH, "InitElem is %d, but the mesh has %d elements", cfg->e0, mesh->ne);
+        MESH_ERROR(msg);
+    }
+}
+
+/**
+ * @brief Load optical property file and initialize the related mesh properties
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void mesh_loadmedia(tetmesh* mesh, mcconfig* cfg) {
+    FILE* fp = NULL;
+    int tmp, len, i;
+    char fmed[MAX_FULL_PATH];
+
+    if (cfg->medianum == 0) {
+        mesh_filenames("prop_%s.dat", fmed, cfg);
+
+        if ((fp = fopen(fmed, "rt")) == NULL) {
+            MESH_ERROR("can not open media property file");
+        }
+
+        len = fscanf(fp, "%d %d", &tmp, &(mesh->prop));
+
+        if (len != 2 || mesh->prop <= 0) {
+            MESH_ERROR("property file has wrong format");
+        }
+    } else {
+        mesh->prop = cfg->medianum - 1;
+    }
+
+    /*when there is an external detector, reindex the property to medianum+1*/
+    mesh->med = (medium*)calloc(sizeof(medium), mesh->prop + 1 + cfg->isextdet);
+
+    mesh->med[0].mua = 0.f;
+    mesh->med[0].mus = 0.f;
+    mesh->med[0].n = cfg->nout;
+    mesh->med[0].g = 1.f;
+
+    /*make medianum+1 the same as medium 0*/
+    if (cfg->isextdet) {
+        memcpy(mesh->med + mesh->prop + 1, mesh->med, sizeof(medium));
+
+        for (i = 0; i < mesh->ne; i++) {
+            if (mesh->type[i] == -2) {
+                mesh->type[i] = mesh->prop + 1;
+            }
+        }
+    }
+
+    if (cfg->medianum == 0) {
+        for (i = 1; i <= mesh->prop; i++) {
+            if (fscanf(fp, "%d %f %f %f %f", &tmp, &(mesh->med[i].mua), &(mesh->med[i].mus),
+                       &(mesh->med[i].g), &(mesh->med[i].n)) != 5) {
+                MESH_ERROR("property file has wrong format");
+            }
+        }
+
+        fclose(fp);
+    } else {
+        memcpy(mesh->med, cfg->prop, sizeof(medium) * cfg->medianum);
+    }
+
+    if (cfg->unitinmm != 1.f) {
+        for (i = 1; i <= mesh->prop; i++) {
+            mesh->med[i].mus *= cfg->unitinmm;
+            mesh->med[i].mua *= cfg->unitinmm;
+        }
+    }
+
+    cfg->his.maxmedia = mesh->prop; /*skip media 0*/
+}
+
+/**
+ * @brief Load edge/node/face roi for implicit MMC
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void mesh_loadroi(tetmesh* mesh, mcconfig* cfg) {
+    FILE* fp;
+    int len, i, j, row, col;
+    float* pe = NULL;
+    char froi[MAX_FULL_PATH];
+
+    if (cfg->roidata && cfg->roitype != rtNone) {
+        if (cfg->roitype == rtEdge) {
+            row = mesh->ne;
+            col = 6;
+            mesh->edgeroi = (float*)malloc(sizeof(float) * row * col);
+            pe = mesh->edgeroi;
+            cfg->implicit = 1;
+        } else if (cfg->roitype == rtNode) {
+            row = mesh->nn;
+            col = 1;
+            mesh->noderoi = (float*)malloc(sizeof(float) * row * col);
+            pe = mesh->noderoi;
+            cfg->implicit = 1;
+        } else {
+            row = mesh->ne;
+            col = 4;
+            mesh->faceroi = (float*)malloc(sizeof(float) * row * col);
+            pe = mesh->faceroi;
+            cfg->implicit = 2;
+        }
+
+        if (cfg->roidatalen != (size_t)row * col) {    /* one row per element (edge, face) or node */
+            MESH_ERROR("Mesh.MeshROI must have one row per element (edge or face ROI) or one value per node (node ROI)");
+        }
+
+        memcpy(pe, cfg->roidata, sizeof(float) * row * col);
+
+        return;
+    }
+
+    mesh_filenames("roi_%s.dat", froi, cfg);
+
+    if ((fp = fopen(froi, "rt")) == NULL) {
+        return;
+    }
+
+    len = fscanf(fp, "%d %d", &col, &row);
+
+    if (len != 2 || (col != 1 && col != 4 && col != 6) || row <= 0) {
+        MESH_ERROR("roi file has wrong format");
+    }
+
+    if (col == 6) {
+        mesh->edgeroi = (float*)malloc(sizeof(float) * 6 * mesh->ne);
+        pe = mesh->edgeroi;
+        cfg->implicit = 1;
+    } else if (col == 1) {
+        mesh->noderoi = (float*)malloc(sizeof(float) * mesh->nn);
+        pe = mesh->noderoi;
+        cfg->implicit = 1;
+    } else if (col == 4) {
+        mesh->faceroi = (float*)malloc(sizeof(float) * 4 * mesh->ne);
+        pe = mesh->faceroi;
+        cfg->implicit = 2;
+    }
+
+    for (i = 0; i < row; i++) {
+        for (j = 0; j < col; j++)
+            if (fscanf(fp, "%f", pe + j) != 1) {
+                break;
+            }
+
+        pe += col;
+    }
+
+    fclose(fp);
+
+    if (i < row) {
+        MESH_ERROR("roi file has wrong format");
+    }
+}
+
+/**
+ * @brief Load element file and initialize the related mesh properties
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void mesh_loadelem(tetmesh* mesh, mcconfig* cfg) {
+    FILE* fp;
+    int tmp, len, i, j, datalen;
+    int* pe;
+    char felem[MAX_FULL_PATH];
+
+    if (cfg->node && cfg->nodenum > 0) {
+        mesh->ne = cfg->elemnum;
+        mesh->elemlen = cfg->elemlen;
+
+        mesh->elem = (int*)malloc(sizeof(int) * mesh->elemlen * mesh->ne);
+        mesh->type = (int*)malloc(sizeof(int ) * mesh->ne);
+
+        datalen = (cfg->method == rtBLBadouelGrid) ? cfg->crop0.z : ( (cfg->basisorder) ? mesh->nn : mesh->ne);
+        /* one slot per source for multi-source (srcid<=0) and adjoint runs, as in mesh_validate */
+        mesh->weight = (double*)calloc(sizeof(double) * datalen, cfg->maxgate * ((cfg->extrasrclen > cfg->srcnum) ? cfg->extrasrclen : cfg->srcnum));
+
+        /* nodes or voxels times time gates times sources: too many for memory
+           gives NULL, which the tracer then accumulates into */
+        if (mesh->weight == NULL) {
+            MESH_ERROR("not enough memory for the output: reduce the mesh, grid or number of time gates");
+        }
+
+        for (i = 0; i < mesh->ne; i++) {
+            for (j = 0; j < mesh->elemlen; j++) {
+                mesh->elem[i * mesh->elemlen + j] = cfg->elem[i * (mesh->elemlen + 1) + j];
+            }
+
+            mesh->type[i] = cfg->elem[i * (mesh->elemlen + 1) + mesh->elemlen];
+        }
+
+        mesh_srcdetelem(mesh, cfg);
+        return;
+    }
+
+    mesh_filenames("elem_%s.dat", felem, cfg);
+
+    if ((fp = fopen(felem, "rt")) == NULL) {
+        MESH_ERROR("can not open element file");
+    }
+
+    len = fscanf(fp, "%d %d", &(mesh->elemlen), &(mesh->ne));
+
+    if (len != 2 || mesh->ne <= 0) {
+        MESH_ERROR("element file has wrong format");
+    }
+
+    if (mesh->elemlen < 4) {
+        mesh->elemlen = 4;
+    }
+
+    mesh->elem = (int*)malloc(sizeof(int) * mesh->elemlen * mesh->ne);
+    mesh->type = (int*)malloc(sizeof(int ) * mesh->ne);
+
+    datalen = (cfg->method == rtBLBadouelGrid) ? cfg->crop0.z : ( (cfg->basisorder) ? mesh->nn : mesh->ne);
+    /* one slot per source for multi-source (srcid<=0) and adjoint runs, as in mesh_validate */
+    mesh->weight = (double*)calloc(sizeof(double) * datalen, cfg->maxgate * ((cfg->extrasrclen > cfg->srcnum) ? cfg->extrasrclen : cfg->srcnum));
+
+    /* nodes or voxels times time gates times sources: too many for memory
+       gives NULL, which the tracer then accumulates into */
+    if (mesh->weight == NULL) {
+        MESH_ERROR("not enough memory for the output: reduce the mesh, grid or number of time gates");
+    }
+
+    for (i = 0; i < mesh->ne; i++) {
+        pe = mesh->elem + i * mesh->elemlen;
+
+        if (fscanf(fp, "%d", &tmp) != 1) {
+            break;
+        }
+
+        for (j = 0; j < mesh->elemlen; j++)
+            if (fscanf(fp, "%d", pe + j) != 1) {
+                break;
+            }
+
+        if (fscanf(fp, "%d", mesh->type + i) != 1) {
+            break;
+        }
+    }
+
+    fclose(fp);
+
+    if (i < mesh->ne) {
+        MESH_ERROR("element file has wrong format");
+    }
+
+    mesh_srcdetelem(mesh, cfg);
+}
+
+/**
+ * @brief Load tet element volume file and initialize the related mesh properties
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void mesh_loadelemvol(tetmesh* mesh, mcconfig* cfg) {
+    FILE* fp;
+    int tmp, len, i, j, *ee;
+    char fvelem[MAX_FULL_PATH];
+
+    mesh_filenames("velem_%s.dat", fvelem, cfg);
+
+    if ((cfg->elem && cfg->elemnum && cfg->node && cfg->nodenum) || (fp = fopen(fvelem, "rt")) == NULL) {
+        mesh_getvolume(mesh, cfg);
+        return;
+    }
+
+    len = fscanf(fp, "%d %d", &tmp, &(mesh->ne));
+
+    if (len != 2 || mesh->ne <= 0) {
+        MESH_ERROR("mesh file has wrong format");
+    }
+
+    mesh->evol = (float*)malloc(sizeof(float) * mesh->ne);
+    mesh->nvol = (float*)calloc(sizeof(float), mesh->nn);
+
+    for (i = 0; i < mesh->ne; i++) {
+        if (fscanf(fp, "%d %f", &tmp, mesh->evol + i) != 2) {
+            MESH_ERROR("mesh file has wrong format");
+        }
+
+        if (mesh->type[i] <= 0) { /* nodal volume of tissue elements only, the only ones receiving fluence */
+            continue;
+        }
+
+        ee = (int*)(mesh->elem + i * mesh->elemlen);
+
+        for (j = 0; j < mesh->elemlen; j++) {
+            mesh->nvol[ee[j] - 1] += mesh->evol[i] * 0.25f;
+        }
+    }
+
+    fclose(fp);
+}
+
+
+/**
+ * @brief Load face-neightbor element list and initialize the related mesh properties
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void mesh_loadfaceneighbor(tetmesh* mesh, mcconfig* cfg) {
+    FILE* fp;
+    int len, i, j;
+    int* pe;
+    char ffacenb[MAX_FULL_PATH];
+
+    mesh_filenames("facenb_%s.dat", ffacenb, cfg);
+
+    if ((cfg->elem && cfg->elemnum) || (fp = fopen(ffacenb, "rt")) == NULL) {
+        mesh_getfacenb(mesh, cfg);
+        return;
+    }
+
+    len = fscanf(fp, "%d %d", &(mesh->elemlen), &(mesh->ne));
+
+    if (len != 2 || mesh->ne <= 0) {
+        MESH_ERROR("mesh file has wrong format");
+    }
+
+    if (mesh->elemlen < 4) {
+        mesh->elemlen = 4;
+    }
+
+    mesh->facenb = (int*)malloc(sizeof(int) * mesh->elemlen * mesh->ne);
+
+    for (i = 0; i < mesh->ne; i++) {
+        pe = mesh->facenb + i * mesh->elemlen;
+
+        for (j = 0; j < mesh->elemlen; j++)
+            if (fscanf(fp, "%d", pe + j) != 1) {
+                MESH_ERROR("face-neighbor list file has wrong format");
+            }
+    }
+
+    fclose(fp);
+}
+
+/**
+ * @brief Load previously saved photon seeds from an .mch file for replay
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void mesh_loadseedfile(tetmesh* mesh, mcconfig* cfg) {
+    history his;
+    FILE* fp = fopen(cfg->seedfile, "rb");
+
+    if (fp == NULL) {
+        MESH_ERROR("can not open the specified history file");
+    }
+
+    if (fread(&his, sizeof(history), 1, fp) != 1) {
+        MESH_ERROR("error when reading the history file");
+    }
+
+    if (his.savedphoton == 0 || his.seedbyte == 0) {
+        fclose(fp);
+        return;
+    }
+
+    if (his.maxmedia != mesh->prop) {
+        MESH_ERROR("the history file was generated with a different media setting");
+    }
+
+    if (fseek(fp, his.savedphoton * his.colcount * sizeof(float), SEEK_CUR)) {
+        MESH_ERROR("illegal history file");
+    }
+
+    cfg->photonseed = malloc(his.savedphoton * his.seedbyte);
+
+    if (cfg->photonseed == NULL) {
+        MESH_ERROR("can not allocate memory");
+    }
+
+    if (fread(cfg->photonseed, his.seedbyte, his.savedphoton, fp) != his.savedphoton) {
+        MESH_ERROR("error when reading the seed data");
+    }
+
+    cfg->seed = SEED_FROM_FILE;
+    cfg->nphoton = his.savedphoton;
+
+    if (cfg->outputtype == otJacobian || cfg->outputtype == otWL || cfg->outputtype == otWP || cfg->replaydet > 0) {
+        int i, j;
+        float* ppath = (float*)malloc(his.savedphoton * his.colcount * sizeof(float));
+        cfg->replayweight = (float*)malloc(his.savedphoton * sizeof(float));
+        cfg->replaytime = (float*)malloc(his.savedphoton * sizeof(float));
+        fseek(fp, sizeof(his), SEEK_SET);
+
+        if (fread(ppath, his.colcount * sizeof(float), his.savedphoton, fp) != his.savedphoton) {
+            MESH_ERROR("error when reading the partial path data");
+        }
+
+        cfg->nphoton = 0;
+
+        for (i = 0; i < his.savedphoton; i++)
+            if (cfg->replaydet == 0 || cfg->replaydet == (int)(ppath[i * his.colcount])) {
+                memcpy((char*)(cfg->photonseed) + cfg->nphoton * his.seedbyte, (char*)(cfg->photonseed) + i * his.seedbyte, his.seedbyte);
+
+                // replay with wide-field detection pattern, the partial path has to contain photon exit information
+                if ((cfg->detparam1.w * cfg->detparam2.w > 0) && (cfg->detpattern != NULL)) {
+                    cfg->replayweight[cfg->nphoton] = mesh_getdetweight(i, his.colcount, ppath, cfg);
+                } else {
+                    cfg->replayweight[cfg->nphoton] = ppath[(i + 1) * his.colcount - 1];
+                }
+
+                for (j = 2; j < his.maxmedia + 2; j++) {
+                    cfg->replayweight[cfg->nphoton] *= expf(-mesh->med[j - 1].mua * ppath[i * his.colcount + j] * his.unitinmm);
+                }
+
+                cfg->replaytime[cfg->nphoton] = 0.f;
+
+                for (j = 2; j < his.maxmedia + 2; j++) {
+                    cfg->replaytime[cfg->nphoton] += mesh->med[j - 1].n * ppath[i * his.colcount + j] * R_C0;
+                }
+
+                cfg->nphoton++;
+            }
+
+        free(ppath);
+        cfg->photonseed = realloc(cfg->photonseed, cfg->nphoton * his.seedbyte);
+        cfg->replayweight = (float*)realloc(cfg->replayweight, cfg->nphoton * sizeof(float));
+        cfg->replaytime = (float*)realloc(cfg->replaytime, cfg->nphoton * sizeof(float));
+        cfg->minenergy = 0.f;
+    }
+
+    fclose(fp);
+}
+
+#endif
+
+/**
+ * @brief Compute the tetrahedron and nodal volumes if not provided
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+
+void mesh_getvolume(tetmesh* mesh, mcconfig* cfg) {
+    int i, j, k;
+
+    mesh->evol = (float*)calloc(sizeof(float), mesh->ne);
+    mesh->nvol = (float*)calloc(sizeof(float), mesh->nn);
+
+    for (i = 0; i < mesh->ne; i++) {
+        int* ee = (int*)(mesh->elem + i * mesh->elemlen);
+        double a[3], b[3], c[3], vol, len = 0.0;
+
+        /* signed volume (x6) in double precision, relative to node 0 */
+        for (k = 0; k < 3; k++) {
+            a[k] = (double)(&mesh->node[ee[1] - 1].x)[k] - (&mesh->node[ee[0] - 1].x)[k];
+            b[k] = (double)(&mesh->node[ee[2] - 1].x)[k] - (&mesh->node[ee[0] - 1].x)[k];
+            c[k] = (double)(&mesh->node[ee[3] - 1].x)[k] - (&mesh->node[ee[0] - 1].x)[k];
+            len = MAX(len, MAX(fabs(a[k]), MAX(fabs(b[k]), fabs(c[k]))));
+        }
+
+        vol = -(a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]));
+
+        /* reorient inverted elements; the sign of a flat (sliver) element is round-off noise,
+           and flipping it breaks the face orientation that the ray-tracer relies on */
+        if (vol < -1e-6 * len * len * len) {
+            int e1 = ee[3];
+            float t;
+            ee[3] = ee [2];
+            ee[2] = e1;
+
+            /* the iMMC columns follow the nodes: edges {01,02,03,12,13,23}, faces of facenb */
+            if (mesh->edgeroi) {
+                float* er = mesh->edgeroi + i * 6;
+                t = er[1], er[1] = er[2], er[2] = t;
+                t = er[3], er[3] = er[4], er[4] = t;
+            }
+
+            if (mesh->faceroi) {
+                float* fr = mesh->faceroi + i * 4;
+                t = fr[0], fr[0] = fr[1], fr[1] = t;
+            }
+        }
+
+        mesh->evol[i] = (float)(fabs(vol) / 6.0);
+
+        if (mesh->type[i] <= 0) { /* nodal volume of tissue elements only, the only ones receiving fluence */
+            continue;
+        }
+
+        for (j = 0; j < mesh->elemlen; j++) {
+            mesh->nvol[ee[j] - 1] += mesh->evol[i] * 0.25f;
+        }
+    }
+
+    if (mesh->fnode) {
+        free(mesh->fnode);
+        mesh->fnode = NULL;
+    }
+
+    if (mesh->fnorm) {
+        free(mesh->fnorm);
+        mesh->fnorm = NULL;
+    }
+
+    if (mesh->face) {
+        free(mesh->face);
+        mesh->face = NULL;
+    }
+
+    if (mesh->front) {
+        free(mesh->front);
+        mesh->front = NULL;
+    }
+
+    if (mesh->back) {
+        free(mesh->back);
+        mesh->back = NULL;
+    }
+}
+
+/**
+ * @brief Precompute deldotdel[t][10] = ⟨∇φ_i·∇φ_j⟩ * Ve for each element.
+ *
+ * For a linear tetrahedral basis, ∇φ_i is constant inside the element. This
+ * function computes the 10 unique upper-triangle entries of the 4×4 symmetric
+ * matrix ⟨∇φ_i·∇φ_j⟩, multiplied by the element volume Ve. The packed order is
+ *   [d00, d01, d02, d03, d11, d12, d13, d22, d23, d33].
+ *
+ * Required by the mesh-mode adjoint J_D computation; allocated lazily.
+ * Direct port of rb_deldotdel() from redbird-m/matlab/rbfemmatrix.cpp:851-905.
+ *
+ * @param[in,out] mesh: mesh with node/elem/evol populated; on return,
+ *                      mesh->deldotdel points to a malloc'd ne×10 double array.
+ */
+void mesh_deldotdel(tetmesh* mesh) {
+    int i1, i2, i3, i4, i, j, t;
+    double derx[4], dery[4], derz[4];
+    double Ve, RVe6;
+    FLOAT3* N = mesh->node;
+
+    if (mesh->deldotdel) {
+        free(mesh->deldotdel);
+    }
+
+    mesh->deldotdel = (double*)calloc((size_t)mesh->ne * 10, sizeof(double));
+
+    for (t = 0; t < mesh->ne; t++) {
+        int* ee = (int*)(mesh->elem + t * mesh->elemlen);
+        i1 = ee[0] - 1;
+        i2 = ee[1] - 1;
+        i3 = ee[2] - 1;
+        i4 = ee[3] - 1;
+
+        Ve = mesh->evol[t];
+        RVe6 = 1.0 / (Ve * 6.0);
+
+        derx[0] = -((N[i3].y * N[i4].z - N[i3].z * N[i4].y) - N[i2].y * (N[i4].z - N[i3].z)
+                    + N[i2].z * (N[i4].y - N[i3].y)) * RVe6;
+        dery[0] = ((N[i3].x * N[i4].z - N[i4].x * N[i3].z) - N[i2].x * (N[i4].z - N[i3].z)
+                   + N[i2].z * (N[i4].x - N[i3].x)) * RVe6;
+        derz[0] = -((N[i3].x * N[i4].y - N[i3].y * N[i4].x) - N[i2].x * (N[i4].y - N[i3].y)
+                    + N[i2].y * (N[i4].x - N[i3].x)) * RVe6;
+
+        derx[1] = ((N[i3].y * N[i4].z - N[i3].z * N[i4].y) - N[i1].y * (N[i4].z - N[i3].z)
+                   + N[i1].z * (N[i4].y - N[i3].y)) * RVe6;
+        dery[1] = -((N[i3].x * N[i4].z - N[i4].x * N[i3].z) - N[i1].x * (N[i4].z - N[i3].z)
+                    + N[i1].z * (N[i4].x - N[i3].x)) * RVe6;
+        derz[1] = ((N[i3].x * N[i4].y - N[i3].y * N[i4].x) - N[i1].x * (N[i4].y - N[i3].y)
+                   + N[i1].y * (N[i4].x - N[i3].x)) * RVe6;
+
+        derx[2] = -((N[i2].y * N[i4].z - N[i2].z * N[i4].y) - N[i1].y * (N[i4].z - N[i2].z)
+                    + N[i1].z * (N[i4].y - N[i2].y)) * RVe6;
+        dery[2] = ((N[i2].x * N[i4].z - N[i4].x * N[i2].z) - N[i1].x * (N[i4].z - N[i2].z)
+                   + N[i1].z * (N[i4].x - N[i2].x)) * RVe6;
+        derz[2] = -((N[i2].x * N[i4].y - N[i2].y * N[i4].x) - N[i1].x * (N[i4].y - N[i2].y)
+                    + N[i1].y * (N[i4].x - N[i2].x)) * RVe6;
+
+        derx[3] = ((N[i2].y * N[i3].z - N[i2].z * N[i3].y) - N[i1].y * (N[i3].z - N[i2].z)
+                   + N[i1].z * (N[i3].y - N[i2].y)) * RVe6;
+        dery[3] = -((N[i2].x * N[i3].z - N[i3].x * N[i2].z) - N[i1].x * (N[i3].z - N[i2].z)
+                    + N[i1].z * (N[i3].x - N[i2].x)) * RVe6;
+        derz[3] = ((N[i2].x * N[i3].y - N[i2].y * N[i3].x) - N[i1].x * (N[i3].y - N[i2].y)
+                   + N[i1].y * (N[i3].x - N[i2].x)) * RVe6;
+
+        /* upper triangle packed as [00,01,02,03,11,12,13,22,23,33] */
+        int idx = 0;
+
+        for (i = 0; i < 4; i++)
+            for (j = i; j < 4; j++) {
+                mesh->deldotdel[t * 10 + idx] = (derx[i] * derx[j] + dery[i] * dery[j] + derz[i] * derz[j]) * Ve;
+                idx++;
+            }
+    }
+}
+
+/**
+ * @brief Scan all tetrahedral elements to find the one enclosing the source
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration structure
+ *
+ * @return 0 if an enclosing element is found, 1 if not found
+ */
+
+int mesh_initelem(tetmesh* mesh, mcconfig* cfg) {
+    FLOAT3* nodes = mesh->node;
+    int i, j;
+
+    for (i = 0; i < mesh->ne; i++) {
+        double pmin[3] = {VERY_BIG, VERY_BIG, VERY_BIG}, pmax[3] = {-VERY_BIG, -VERY_BIG, -VERY_BIG};
+        int* elems = (int*)(mesh->elem + i * mesh->elemlen); // convert int4* to int*
+
+        for (j = 0; j < mesh->elemlen; j++) {
+            pmin[0] = MIN(nodes[elems[j] - 1].x, pmin[0]);
+            pmin[1] = MIN(nodes[elems[j] - 1].y, pmin[1]);
+            pmin[2] = MIN(nodes[elems[j] - 1].z, pmin[2]);
+
+            pmax[0] = MAX(nodes[elems[j] - 1].x, pmax[0]);
+            pmax[1] = MAX(nodes[elems[j] - 1].y, pmax[1]);
+            pmax[2] = MAX(nodes[elems[j] - 1].z, pmax[2]);
+        }
+
+        if (cfg->srcpos.x <= pmax[0] && cfg->srcpos.x >= pmin[0] &&
+                cfg->srcpos.y <= pmax[1] && cfg->srcpos.y >= pmin[1] &&
+                cfg->srcpos.z <= pmax[2] && cfg->srcpos.z >= pmin[2]) {
+
+            if (mesh_barycentric(i + 1, &(cfg->bary0.x), (FLOAT3*) & (cfg->srcpos), mesh) == 0) {
+                cfg->e0 = i + 1;
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
+/**
+ * @brief Find the enclosing tetrahedron for each launch slot in cfg->srcdata
+ *
+ * In multi-source / adjoint mode (cfg->srcid <= 0 && cfg->extrasrclen > 0)
+ * the kernel's launchnewphoton sets r->eid = gcfg->e0 for every photon, but
+ * gcfg->e0 is computed only from cfg->srcpos[0] (the main source's tet). For
+ * every other slot (sources 2..Ns, detector-as-adjoint slots 1..Nd) the
+ * initial element is wrong and photons start with a tet that doesn't contain
+ * their actual launch position, corrupting the ray-tet walking and the
+ * per-element deposits.
+ *
+ * This helper iterates over cfg->srcdata, computes the containing element for
+ * each slot's srcpos via bbox-prefilter + barycentric check, and stashes the
+ * resulting 1-based element ID into srcparam2.w (an otherwise-unused float
+ * slot for pencil and detector-disk source types). The kernel reads it back
+ * as (int) and uses it as the per-slot r->eid. Float-exact storage works
+ * because ne is well within the 24-bit integer range of a single-precision
+ * float.
+ *
+ * Call this once after the host has populated cfg->srcdata, before the kernel
+ * is launched. It is a no-op when extrasrclen == 0 or srcid > 0.
+ */
+void mesh_init_srcdata_eid(tetmesh* mesh, mcconfig* cfg) {
+    /* also for srcid>0: the single selected source launches from its own element, it
+       launched from the element of the first source */
+    if (cfg->extrasrclen <= 0 || cfg->srcdata == NULL) {
+        return;
+    }
+
+    FLOAT3* nodes = mesh->node;
+
+    for (int slot = 0; slot < cfg->extrasrclen; slot++) {
+        FLOAT3 pos = {cfg->srcdata[slot].srcpos.x,
+                      cfg->srcdata[slot].srcpos.y,
+                      cfg->srcdata[slot].srcpos.z
+                     };
+        float bary[4];
+        int eid = 0;
+
+        /* bbox-prefilter + barycentric check, same logic as mesh_initelem */
+        for (int i = 0; i < mesh->ne; i++) {
+            double pmin[3] = {VERY_BIG, VERY_BIG, VERY_BIG};
+            double pmax[3] = { -VERY_BIG, -VERY_BIG, -VERY_BIG};
+            int* elems = (int*)(mesh->elem + i * mesh->elemlen);
+
+            for (int j = 0; j < mesh->elemlen; j++) {
+                pmin[0] = MIN(nodes[elems[j] - 1].x, pmin[0]);
+                pmin[1] = MIN(nodes[elems[j] - 1].y, pmin[1]);
+                pmin[2] = MIN(nodes[elems[j] - 1].z, pmin[2]);
+                pmax[0] = MAX(nodes[elems[j] - 1].x, pmax[0]);
+                pmax[1] = MAX(nodes[elems[j] - 1].y, pmax[1]);
+                pmax[2] = MAX(nodes[elems[j] - 1].z, pmax[2]);
+            }
+
+            if (pos.x <= pmax[0] && pos.x >= pmin[0] &&
+                    pos.y <= pmax[1] && pos.y >= pmin[1] &&
+                    pos.z <= pmax[2] && pos.z >= pmin[2]) {
+                if (mesh_barycentric(i + 1, bary, &pos, mesh) == 0) {
+                    eid = i + 1;
+                    break;
+                }
+            }
+        }
+
+        cfg->srcdata[slot].srcparam2.w = (float)eid;
+    }
+}
+
+
+/**
+ * @brief Compute the barycentric coordinate of the source in the initial element
+ *
+ * @param[in] e0: the index (start from 1) of the initial element
+ * @param[in] bary: the index (start from 1) of the initial element
+ * @param[in] srcpos: the source position
+ * @param[in] mesh: the mesh of the domain
+ *
+ * @return 0 if all barycentric coordinates are computed and all positive, or 1 any of those is negative
+ */
+
+int mesh_barycentric(int e0, float* bary, FLOAT3* srcpos, tetmesh* mesh) {
+    int eid = e0 - 1, i;
+    FLOAT3 vecS = {0.f}, vecAB, vecAC, vecN;
+    FLOAT3* nodes = mesh->node;
+    int ea, eb, ec;
+    float s = 0.f;
+    int* elems = (int*)(mesh->elem + eid * mesh->elemlen); // convert int4* to int*
+
+    if (eid >= mesh->ne) {
+        MESH_ERROR("initial element index exceeds total element count");
+    }
+
+    for (i = 0; i < 4; i++) {
+        ea = elems[out[i][0]] - 1;
+        eb = elems[out[i][1]] - 1;
+        ec = elems[out[i][2]] - 1;
+        vec_diff3(&nodes[ea], &nodes[eb], &vecAB);
+        vec_diff3(&nodes[ea], &nodes[ec], &vecAC);
+        vec_diff3(&nodes[ea], srcpos, &vecS);
+        vec_cross3(&vecAB, &vecAC, &vecN);
+        bary[facemap[i]] = -vec_dot3(&vecS, &vecN);
+    }
+
+    for (i = 0; i < 4; i++) {
+        if (bary[i] < 0.f) {
+            return 1;
+        }
+
+        s += bary[i];
+    }
+
+    for (i = 0; i < 4; i++) {
+        bary[i] /= s;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Initialize a data structure storing all pre-computed ray-tracing related data
+ *
+ * the pre-computed ray-tracing data include
+ * d: the vector of the 6 edges
+ * m: the cross-product of the end-nodes of the 6-edges n1 x n2
+ * n: the normal vector of the 4 facets, pointing outwards
+ *
+ * @param[out] tracer: the ray-tracer data structure
+ * @param[in] pmesh: the mesh object
+ * @param[in] methodid: the ray-tracing algorithm to be used
+ */
+
+void tracer_init(raytracer* tracer, tetmesh* pmesh, char methodid) {
+    tracer->d = NULL;
+    tracer->m = NULL;
+    tracer->n = NULL;
+    tracer->mesh = pmesh;
+    tracer->method = methodid;
+    tracer_build(tracer);
+}
+
+
+/**
+ * @brief Build the per-element lists of the edge (capsule) and node (sphere) iMMC primitives
+ *
+ * Every ROI edge becomes a capsule, a segment with spherical end caps (an edge listed by several
+ * elements keeps its largest radius), and every ROI node a sphere. Each element lists every
+ * primitive that may overlap it, so that the photon is traced against the union of all ROIs
+ * inside the element. The overlap test is conservative (the primitive's box against the
+ * element's box, and the primitive against the element's bounding sphere): an extra entry costs
+ * a ray test, a missing one would leak photons. The candidates come from a uniform grid holding
+ * the primitives' boxes.
+ *
+ * @param[in,out] mesh: the mesh; roioff, roilist and nroiprim are set (CSR, see tetmesh)
+ * @param[in] cfg: the simulation configuration
+ */
+
+typedef struct {
+    int a, b;
+    float r;
+} roiedge;
+
+static int roiedge_cmp(const void* p, const void* q) {
+    const roiedge* x = (const roiedge*)p, *y = (const roiedge*)q;
+    return (x->a != y->a) ? (x->a > y->a) - (x->a < y->a) : ((x->b != y->b) ? (x->b > y->b) - (x->b < y->b) : (x->r < y->r) - (x->r > y->r));
+}
+
+static int roiint_cmp(const void* p, const void* q) {
+    return *(const int*)p - *(const int*)q;
+}
+
+void mesh_roilist(tetmesh* mesh, mcconfig* cfg) {
+    const int e2n[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+    int i, j, k, n, nedge = 0, nnode, np = 0, ne = mesh->ne, len, cap, dim[3], ncell;
+    int* cellbeg, *cellprim, *seen, *list;
+    roiedge* edge = NULL;
+    float* pl;
+    double h, lo[3] = {1e300, 1e300, 1e300}, ext[3] = {-1e300, -1e300, -1e300};
+
+    free(mesh->roioff);
+    free(mesh->roilist);
+    mesh->roioff = NULL;
+    mesh->roilist = NULL;
+    mesh->nroiprim = 0;
+
+    if (cfg->implicit != 1 || (!mesh->edgeroi && !mesh->noderoi && !cfg->roiprim)) {
+        return;
+    }
+
+    /* the distinct ROI edges (node indices n0 < n1), the largest radius first, then the ROI nodes */
+    if (mesh->edgeroi) {
+        edge = (roiedge*)malloc(sizeof(roiedge) * ne * 6);
+
+        for (i = 0; i < ne * 6; i++) {
+            if (mesh->edgeroi[i] > 0.f) {
+                int* ee = mesh->elem + (i / 6) * mesh->elemlen, n0 = ee[e2n[i % 6][0]] - 1, n1 = ee[e2n[i % 6][1]] - 1;
+                roiedge e = {MIN(n0, n1), MAX(n0, n1), mesh->edgeroi[i]};
+                edge[np++] = e;
+            }
+        }
+
+        qsort(edge, np, sizeof(roiedge), roiedge_cmp);
+
+        for (i = 0; i < np; i++) {
+            if (nedge == 0 || edge[i].a != edge[nedge - 1].a || edge[i].b != edge[nedge - 1].b) {
+                edge[nedge++] = edge[i];
+            }
+        }
+    }
+
+    np = nedge;
+
+    for (i = 0; mesh->noderoi && i < mesh->nn; i++) {
+        np += (mesh->noderoi[i] > 0.f);
+    }
+
+    nnode = np - nedge;
+    np += cfg->nroiprim;
+
+    /* {Ax,Ay,Az,r, Bx,By,Bz,Rb^2}, r < 0 marks a sphere */
+    mesh->roilist = pl = (float*)calloc(8 * MAX(np, 1), sizeof(float));
+    mesh->nroiprim = np;
+
+    for (i = 0, k = 0; i < np; i++) {
+        FLOAT3* a, *b;
+        float* d = pl + i * 8, r;
+
+        if (i >= nedge + nnode) {    /* Mesh.MeshROIPrim: a capsule, or a sphere if B == A */
+            float* q = cfg->roiprim + (i - nedge - nnode) * 7;
+            int issph = (q[0] == q[3] && q[1] == q[4] && q[2] == q[5]);
+
+            d[0] = q[0], d[1] = q[1], d[2] = q[2], d[3] = issph ? -q[6] : q[6];
+            d[4] = q[3], d[5] = q[4], d[6] = q[5];
+            d[7] = 0.5f * sqrtf((q[3] - q[0]) * (q[3] - q[0]) + (q[4] - q[1]) * (q[4] - q[1]) + (q[5] - q[2]) * (q[5] - q[2])) + q[6];
+            d[7] = (d[7] * 1.0001f + mesh->roieps) * (d[7] * 1.0001f + mesh->roieps);
+            continue;
+        } else if (i < nedge) {
+            a = mesh->node + edge[i].a;
+            b = mesh->node + edge[i].b;
+            r = edge[i].r;
+        } else {
+            while (mesh->noderoi[k] <= 0.f) {
+                k++;
+            }
+
+            a = b = mesh->node + k;
+            r = mesh->noderoi[k++];
+        }
+
+        d[0] = a->x, d[1] = a->y, d[2] = a->z, d[3] = (i < nedge) ? r : -r;
+        d[4] = b->x, d[5] = b->y, d[6] = b->z;
+        d[7] = 0.5f * dist_3(a, b) + r;    /* the bounding sphere, outside the in/out rounding band */
+        d[7] = (d[7] * 1.0001f + mesh->roieps) * (d[7] * 1.0001f + mesh->roieps);
+    }
+
+    free(edge);
+
+    /* a uniform grid of about one cell per element (at most 2^22 cells) holding the primitive boxes */
+    for (i = 0; i < mesh->nn; i++) {    /* the bounding box of the nodes, in double: a float extent can overflow */
+        for (j = 0; j < 3; j++) {
+            lo[j] = MIN(lo[j], (double)(&mesh->node[i].x)[j]);
+            ext[j] = MAX(ext[j], (double)(&mesh->node[i].x)[j]);
+        }
+    }
+
+    for (j = 0; j < 3; j++) {
+        lo[j] = (mesh->nn > 0) ? lo[j] : 0.0;
+        ext[j] = (mesh->nn > 0) ? ext[j] - lo[j] : 0.0;
+    }
+
+    h = cbrt(ext[0] * ext[1] * ext[2] / MAX(MIN(ne, 1 << 22), 1));
+    h = MAX(h, 1e-6 * MAX(ext[0], MAX(ext[1], ext[2])));
+    h = (h > 0.0) ? h : 1.0;    /* a mesh of zero extent: one cell */
+
+    for (;;) {    /* the cell count in double: a flat or huge box overflows an int */
+        double nc = 1.0;
+
+        for (j = 0; j < 3; j++) {
+            nc *= floor(ext[j] / h) + 1.0;
+        }
+
+        if (nc <= (double)(1 << 22)) {
+            break;
+        }
+
+        h *= 1.25;
+    }
+
+    for (j = 0, ncell = 1; j < 3; j++) {
+        dim[j] = (int)floor(ext[j] / h) + 1;
+        ncell *= dim[j];
+    }
+
+#define ROI_CELL(v, j) ((int)MIN(MAX(((double)(v) - lo[j]) / h, 0.0), (double)(dim[j] - 1)))    /* clamped before the cast: far-away primitives */
+#define ROI_PAD(d) ((d)[3] > 0.f ? (d)[3] : -(d)[3]) * 1.0001f + mesh->roieps
+
+    cellbeg = (int*)calloc(ncell + 1, sizeof(int));
+    cellprim = NULL;
+
+    for (n = 0; n < 2; n++) {    /* pass 0 counts the cell entries, pass 1 fills them */
+        for (i = 0; i < np; i++) {
+            float* d = pl + i * 8, pad = ROI_PAD(d);
+            int c0[3], c1[3], x, y, z;
+
+            for (j = 0; j < 3; j++) {
+                c0[j] = ROI_CELL(MIN(d[j], d[j + 4]) - pad, j);
+                c1[j] = ROI_CELL(MAX(d[j], d[j + 4]) + pad, j);
+            }
+
+            for (z = c0[2]; z <= c1[2]; z++)
+                for (y = c0[1]; y <= c1[1]; y++)
+                    for (x = c0[0]; x <= c1[0]; x++) {
+                        int c = (z * dim[1] + y) * dim[0] + x;
+
+                        if (n == 0) {
+                            cellbeg[c + 1]++;
+                        } else {
+                            cellprim[cellbeg[c]++] = i;
+                        }
+                    }
+        }
+
+        if (n == 0) {
+            for (i = 0; i < ncell; i++) {
+                cellbeg[i + 1] += cellbeg[i];
+            }
+
+            cellprim = (int*)malloc(sizeof(int) * MAX(cellbeg[ncell], 1));
+        } else {
+            for (i = ncell; i > 0; i--) {    /* the fill advanced each start to the next cell's */
+                cellbeg[i] = cellbeg[i - 1];
+            }
+
+            cellbeg[0] = 0;
+        }
+    }
+
+    /* the element lists, CSR: ne+1 offsets into this array, then the entries */
+    seen = (int*)malloc(sizeof(int) * MAX(np, 1));
+    memset(seen, -1, sizeof(int) * MAX(np, 1));
+    cap = ne + 1 + 4 * ne;
+    list = (int*)malloc(sizeof(int) * cap);
+    len = ne + 1;
+
+    for (i = 0; i < ne; i++) {
+        int* ee = mesh->elem + i * mesh->elemlen, c0[3], c1[3], x, y, z;
+        double bmin[3], bmax[3], cen[3] = {0.0, 0.0, 0.0}, R = 0.0, fn[4][4];
+
+        list[i] = len;
+
+        for (j = 0; j < 3; j++) {
+            bmin[j] = 1e30, bmax[j] = -1e30;
+
+            for (k = 0; k < 4; k++) {
+                double v = (&mesh->node[ee[k] - 1].x)[j];
+                bmin[j] = MIN(bmin[j], v), bmax[j] = MAX(bmax[j], v), cen[j] += 0.25 * v;
+            }
+
+            c0[j] = ROI_CELL(bmin[j], j);
+            c1[j] = ROI_CELL(bmax[j], j);
+        }
+
+        for (k = 0; k < 4; k++) {
+            double d2 = 0.0;
+
+            for (j = 0; j < 3; j++) {
+                double dv = (&mesh->node[ee[k] - 1].x)[j] - cen[j];
+                d2 += dv * dv;
+            }
+
+            R = MAX(R, d2);
+        }
+
+        R = sqrt(R);
+
+        /* the outward unit normals and offsets {n, n.p} of the faces: a primitive entirely beyond one
+           of them misses the element */
+        for (k = 0; k < 4; k++) {
+            float* q0 = &mesh->node[ee[(k + 1) & 3] - 1].x, *q1 = &mesh->node[ee[(k + 2) & 3] - 1].x;
+            float* q2 = &mesh->node[ee[(k + 3) & 3] - 1].x, *opp = &mesh->node[ee[k] - 1].x;
+            double e1[3], e2[3], len2;
+
+            for (j = 0; j < 3; j++) {
+                e1[j] = (double)q1[j] - q0[j];
+                e2[j] = (double)q2[j] - q0[j];
+            }
+
+            fn[k][0] = e1[1] * e2[2] - e1[2] * e2[1];
+            fn[k][1] = e1[2] * e2[0] - e1[0] * e2[2];
+            fn[k][2] = e1[0] * e2[1] - e1[1] * e2[0];
+            len2 = sqrt(fn[k][0] * fn[k][0] + fn[k][1] * fn[k][1] + fn[k][2] * fn[k][2]);
+            len2 = (fn[k][0] * (opp[0] - q0[0]) + fn[k][1] * (opp[1] - q0[1]) + fn[k][2] * (opp[2] - q0[2]) > 0.0) ? -len2 : len2;
+            fn[k][3] = 0.0;
+
+            for (j = 0; j < 3; j++) {
+                fn[k][j] = (len2 != 0.0) ? fn[k][j] / len2 : 0.0;
+                fn[k][3] += fn[k][j] * q0[j];
+            }
+        }
+
+        for (z = c0[2]; z <= c1[2]; z++)
+            for (y = c0[1]; y <= c1[1]; y++)
+                for (x = c0[0]; x <= c1[0]; x++) {
+                    int c = (z * dim[1] + y) * dim[0] + x, m;
+
+                    for (m = cellbeg[c]; m < cellbeg[c + 1]; m++) {
+                        int p = cellprim[m], hit = 1;
+                        float* d = pl + p * 8;
+                        double pad = ROI_PAD(d), ab[3], ac[3], s = 0.0, ab2 = 0.0, d2 = 0.0;
+
+                        if (seen[p] == i) {
+                            continue;
+                        }
+
+                        seen[p] = i;
+
+                        /* the boxes overlap, and the segment comes within r + R of the centroid */
+                        for (j = 0; j < 3; j++) {
+                            hit &= (MIN(d[j], d[j + 4]) - pad <= bmax[j]) && (MAX(d[j], d[j + 4]) + pad >= bmin[j]);
+                            ab[j] = (double)d[j + 4] - d[j];
+                            ac[j] = cen[j] - d[j];
+                            s += ab[j] * ac[j];
+                            ab2 += ab[j] * ab[j];
+                        }
+
+                        s = (ab2 > 0.0) ? MIN(MAX(s / ab2, 0.0), 1.0) : 0.0;
+
+                        for (j = 0; j < 3; j++) {
+                            d2 += (ac[j] - s * ab[j]) * (ac[j] - s * ab[j]);
+                        }
+
+                        for (j = 0; hit && j < 4; j++) {    /* both ends of the segment beyond a face plane */
+                            hit = (fn[j][0] * d[0] + fn[j][1] * d[1] + fn[j][2] * d[2] - fn[j][3] <= pad) ||
+                                  (fn[j][0] * d[4] + fn[j][1] * d[5] + fn[j][2] * d[6] - fn[j][3] <= pad);
+                        }
+
+                        if (hit && d2 <= (pad + R) * (pad + R)) {
+                            if (len == cap) {
+                                cap *= 2;
+                                list = (int*)realloc(list, sizeof(int) * cap);
+                            }
+
+                            list[len++] = p;
+                        }
+                    }
+                }
+
+        qsort(list + list[i], len - list[i], sizeof(int), roiint_cmp);    /* in primitive order */
+    }
+
+    list[ne] = len;
+    mesh->roioff = list;
+
+#undef ROI_CELL
+#undef ROI_PAD
+
+    free(seen);
+    free(cellprim);
+    free(cellbeg);
+}
+
+/**
+ * @brief Preparing for the ray-tracing calculations
+ *
+ * This function build the ray-tracing precomputed data and test if the initial
+ * element (e0) encloses the photon launch position.
+ *
+ * @param[out] tracer: the ray-tracer data structure
+ * @param[in] cfg: the simulation configuration structure
+ */
+
+void tracer_prep(raytracer* tracer, mcconfig* cfg) {
+    int i, j, k, ne = tracer->mesh->ne;
+
+    if (cfg->compute == cbOptiX && tracer->mesh->ne == 0 && tracer->mesh->nface > 0) {
+        return;  /* a surface-only mesh: the OptiX triangles come from Mesh.MeshSurf (mesh_loadsurf) */
+    }
+
+    if (cfg->compute == cbOptiX) {
+        tetmesh* pmesh = tracer->mesh;
+        int* fnb = (int*)malloc(pmesh->ne * pmesh->elemlen * sizeof(int));
+        memcpy(fnb, tracer->mesh->facenb, (pmesh->ne * pmesh->elemlen) * sizeof(int));
+
+        // copy node from a float4 array into a float3 array
+        if (pmesh->fnode) {
+            free(pmesh->fnode);
+        }
+
+        pmesh->fnode = (FLOAT3*)malloc(pmesh->nn * sizeof(FLOAT3));
+
+        for (int i = 0; i < pmesh->nn; ++i) {
+            pmesh->fnode[i].x = pmesh->node[i].x;
+            pmesh->fnode[i].y = pmesh->node[i].y;
+            pmesh->fnode[i].z = pmesh->node[i].z;
+        }
+
+        // find triangle meshes, front and back medium types
+        pmesh->nface = 0;
+        pmesh->face = (uint3*)malloc((pmesh->ne * pmesh->elemlen) * sizeof(uint3));
+        pmesh->fnorm = (FLOAT3*)malloc((pmesh->ne * pmesh->elemlen) * sizeof(FLOAT3));
+        pmesh->front = (uint*)malloc((pmesh->ne * pmesh->elemlen) * sizeof(uint));
+        pmesh->back = (uint*)malloc((pmesh->ne * pmesh->elemlen) * sizeof(uint));
+        FLOAT3 v0, v1, v2, vec01, vec02, vnorm;
+
+        for (int i = 0; i < pmesh->ne; ++i) {
+            for (int j = 0; j < pmesh->elemlen; ++j) {
+                int nexteid = fnb[(i * pmesh->elemlen) + j];
+
+                /* labels <= 0 (the void and the wide-field source/detector domains, -1/-2)
+                   are all the ambient medium 0 of the OptiX kernel; nexteid < 0 marks a face
+                   already added from the neighboring element */
+                int mytype = MAX(pmesh->type[i], 0), nexttype = (nexteid > 0) ? MAX(pmesh->type[nexteid - 1], 0) : 0;
+
+                if (nexteid >= 0 && nexttype != mytype) {
+                    // face node
+                    pmesh->face[pmesh->nface].x = pmesh->elem[(i * pmesh->elemlen) + out[ifaceorder[j]][0]] - 1;
+                    pmesh->face[pmesh->nface].y = pmesh->elem[(i * pmesh->elemlen) + out[ifaceorder[j]][1]] - 1;
+                    pmesh->face[pmesh->nface].z = pmesh->elem[(i * pmesh->elemlen) + out[ifaceorder[j]][2]] - 1;
+                    // face norm: pointing from back to front
+                    v0 = pmesh->fnode[pmesh->face[pmesh->nface].x];
+                    v1 = pmesh->fnode[pmesh->face[pmesh->nface].y];
+                    v2 = pmesh->fnode[pmesh->face[pmesh->nface].z];
+                    vec_diff((float3*)&v0, (float3*)&v1, (float3*)&vec01);
+                    vec_diff((float3*)&v0, (float3*)&v2, (float3*)&vec02);
+                    vec_cross((float3*)&vec01, (float3*)&vec02, (float3*)&vnorm);
+                    float mag = 1.0f / sqrtf(vec_dot((float3*)&vnorm, (float3*)&vnorm));
+                    vec_mult((float3*)&vnorm, mag, (float3*)&vnorm);
+                    pmesh->fnorm[pmesh->nface] = vnorm;
+                    // front and back media types
+                    pmesh->front[pmesh->nface] = nexttype;
+                    pmesh->back[pmesh->nface] = mytype;
+                    fnb[(i * pmesh->elemlen) + j] = -1;
+
+                    if (nexteid > 0) {
+                        for (int k = 0; k < pmesh->elemlen; ++k) {
+                            if (fnb[((nexteid - 1) * pmesh->elemlen) + k] == i + 1) {
+                                fnb[((nexteid - 1) * pmesh->elemlen) + k] = -1;
+                                break;
+                            }
+                        }
+                    }
+
+                    ++pmesh->nface;
+                }
+            }
+        }
+
+        pmesh->face = (uint3*)realloc(pmesh->face, pmesh->nface * sizeof(uint3));
+        pmesh->fnorm = (FLOAT3*)realloc(pmesh->fnorm, pmesh->nface * sizeof(FLOAT3));
+        pmesh->front = (uint*)realloc(pmesh->front, pmesh->nface * sizeof(uint));
+        pmesh->back = (uint*)realloc(pmesh->back, pmesh->nface * sizeof(uint));
+
+        if (fnb) {
+            free(fnb);
+        }
+    }
+
+    if (tracer->n == NULL && tracer->m == NULL && tracer->d == NULL) {
+        if (tracer->mesh != NULL) {
+            tracer_build(tracer);
+        } else {
+            MESH_ERROR("tracer is not associated with a mesh");
+        }
+    } else if ( (cfg->srctype == stPencil || cfg->srctype == stIsotropic || cfg->srctype == stCone || cfg->srctype == stArcSin) ) {
+        if (cfg->e0 <= 0 || mesh_barycentric(cfg->e0, &cfg->bary0.x, (FLOAT3*) & (cfg->srcpos), tracer->mesh)) {
+            if (mesh_initelem(tracer->mesh, cfg)) {
+                MESH_ERROR("initial element does not enclose the source!");
+            }
+        }
+
+        if (cfg->debuglevel & dlWeight)
+            fprintf(cfg->flog, "initial bary-centric volumes [%e %e %e %e]\n",
+                    cfg->bary0.x / 6., cfg->bary0.y / 6., cfg->bary0.z / 6., cfg->bary0.w / 6.);
+    }
+
+    // TODO: this is a partial fix to the normalization bug described in https://github.com/fangq/mmc/issues/82
+    // basically, mmc surface node fluence is about 2x higher than expected, due to the division to the nodal-volume
+    // of surface nodes that is roughtly half of that in an interior node.
+    // To more carefully handle this, one should calculate the solid-angle S of any surface nodes and use the
+    // ratio (4*Pi/S) to scale nvol. Here, we simply multiply surface node nvol by 2x. Should work fine for
+    // flat surfaces, but will not be accurate for edge or corner nodes.
+    // one can disable this fix (i.e. restore to the old behavior) by setting cfg.isnormalized to 2
+
+    if (cfg->isnormalized == 1 && cfg->method != rtBLBadouelGrid && cfg->basisorder) {
+        float* Reff = (float*)calloc(tracer->mesh->prop + 1, sizeof(float));
+
+        if (cfg->isreflect) {
+            for (i = 1; i <= tracer->mesh->prop; i++) { // precompute the Reff for each non-zero label
+                for (j = 1; j < i; j++) {
+                    if (tracer->mesh->med[j].n == tracer->mesh->med[i].n) { // if such reflective index has been computed, copy the value
+                        Reff[i] = Reff[j];
+                        break;
+                    }
+                }
+
+                if (Reff[i] == 0.f) {
+                    Reff[i] = mesh_getreff(tracer->mesh->med[i].n, tracer->mesh->med[0].n);
+                }
+            }
+        }
+
+        for (i = 0; i < ne; i++) {
+            int* elems = tracer->mesh->elem + i * tracer->mesh->elemlen;   // element node indices
+            int* enb = tracer->mesh->facenb + i * tracer->mesh->elemlen;   // check facenb, find surface faces
+
+            if (tracer->mesh->type[i] <= 0 || tracer->mesh->type[i] > tracer->mesh->prop) { // only the surface of the tissue matters (not a wide-field detector's prop+1), see mesh_validate
+                continue;
+            }
+
+            for (j = 0; j < tracer->mesh->elemlen; j++) { // loop over my neighbors
+                // an exterior triangle (0-valued face neighbor), or one facing a non-tissue element where photons are terminated
+                if (enb[j] == 0 || tracer->mesh->type[enb[j] - 1] <= 0) {
+                    for (k = 0; k < 3; k++) {
+                        int nid = elems[out[ifaceorder[j]][k]] - 1;
+
+                        if (tracer->mesh->nvol[nid] > 0.f) {  // change sign to prevent it from changing again
+                            tracer->mesh->nvol[nid] *= -(2.f / (1.0 + Reff[tracer->mesh->type[i]])); // 2 accounts for the missing half of the solid angle, Reff is the effective reflection coeff
+                        }
+                    }
+                }
+            }
+        }
+
+        free(Reff);
+
+        for (i = 0; i < tracer->mesh->nn; i++) {
+            if (tracer->mesh->nvol[i] < 0.f) {
+                tracer->mesh->nvol[i] = -tracer->mesh->nvol[i];
+            }
+        }
+    }
+
+    /* the face (slab) iMMC tests and their Fresnel normals use the face normals tracer->n, which the
+       Havel and Badouel tracers do not compute */
+    if (cfg->implicit == 2 && tracer->n == NULL) {
+        MESH_ERROR("face iMMC needs the Plucker (-M P), branch-less Badouel (-M S) or dual-grid (-M G) ray-tracer");
+    }
+
+    // iMMC: the post-hit offset, and the per-element lists of the edge/node ROI primitives
+    if (cfg->implicit) {
+        float X = 0.f;
+
+        for (i = 0; i < tracer->mesh->nn; i++) {
+            X = MAX(X, MAX(fabsf(tracer->mesh->node[i].x), MAX(fabsf(tracer->mesh->node[i].y), fabsf(tracer->mesh->node[i].z))));
+        }
+
+        tracer->mesh->roieps = (X > 0.f) ? ldexpf(16.f * X, -24) : EPS;
+        mesh_roilist(tracer->mesh, cfg);
+    }
+
+    // build acceleration data structure to speed up first-neighbor immc face-roi calculation
+    // loop over each faceroi, count how many roi in each elem, and write to the first elem as negative integer
+    if (tracer->mesh->faceroi) {
+        for (i = 0; i < ne; i++) {
+            int count = 0;
+
+            for (j = 0; j < 4; j++)
+                if (tracer->mesh->faceroi[(i << 2) + j] > 0.f) {
+                    count++;
+                }
+
+            if (count && fabs(tracer->mesh->faceroi[i << 2]) < EPS) {
+                tracer->mesh->faceroi[i << 2] = -count;    // number -1 to -4 indicates how many faces have ROIs
+            }
+        }
+
+        // faces labeled from one side only: the outer surface of a single-sided slab, an interface
+        // between the background and the ROI medium (see slabfacecross() in mmc_raytrace.c)
+        tracer->mesh->nslab1 = 0;
+
+        for (i = 0; i < ne; i++) {
+            int* nb = tracer->mesh->facenb + i * tracer->mesh->elemlen;
+
+            for (j = 0; j < 4; j++) {
+                if (tracer->mesh->faceroi[(i << 2) + j] > 0.f && nb[j] > 0) {
+                    int* nb2 = tracer->mesh->facenb + (nb[j] - 1) * tracer->mesh->elemlen, both = 0;
+
+                    for (k = 0; k < 4; k++) {
+                        both |= (nb2[k] == i + 1) && (tracer->mesh->faceroi[((nb[j] - 1) << 2) + k] > 0.f);
+                    }
+
+                    tracer->mesh->nslab1 += !both;
+                }
+            }
+        }
+    }
+
+    // loop over each external surface triangle (facenb[]==0) and sequentially number them as negative integer
+    ne = tracer->mesh->ne * tracer->mesh->elemlen;
+    tracer->mesh->nf = 0;
+
+    for (i = 0; i < ne; i++) {
+        if (tracer->mesh->facenb[i] == 0) {
+            tracer->mesh->facenb[i] = -(++tracer->mesh->nf);
+        }
+    }
+
+    if (tracer->mesh->dref) {
+        free(tracer->mesh->dref);
+    }
+
+    if (cfg->issaveref) {
+        tracer->mesh->dref = (double*)calloc(sizeof(double) * tracer->mesh->nf * cfg->srcnum, cfg->maxgate);
+    }
+}
+
+/**
+ * @brief Pre-computed ray-tracing related data
+ *
+ * the pre-computed ray-tracing data include
+ * d: the vector of the 6 edges: edge[i]=[ni1,ni2]: d[i]=ni2 - ni1
+ * m: the cross-product of the end-nodes of the 6-edges: edge[i]=[ni1,ni2]: m[i]=ni1 x ni2
+ * n: the normal vector of the 4 facets, pointing outwards
+ *
+ * @param[out] tracer: the ray-tracer data structure
+ */
+
+void tracer_build(raytracer* tracer) {
+    unsigned int ne, i, j;
+    const int pairs[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+
+    FLOAT3* nodes;
+    int* elems, ebase;
+    int e1, e0;
+    float Rn2;
+
+    if (tracer->d || tracer->m || tracer->n || tracer->mesh == NULL) {
+        return;
+    }
+
+    if (tracer->mesh->ne == 0 && tracer->mesh->nface > 0) {
+        return;  /* a surface-only mesh for OptiX has no elements to precompute */
+    }
+
+    if (tracer->mesh->node == NULL || tracer->mesh->elem == NULL ||
+            tracer->mesh->facenb == NULL || tracer->mesh->med == NULL) {
+        MESH_ERROR("mesh is missing");
+    }
+
+    ne = tracer->mesh->ne;
+    nodes = tracer->mesh->node;
+    elems = (int*)(tracer->mesh->elem); // convert int4* to int*
+
+    if (tracer->method == rtPlucker) {
+        tracer->d = (float3*)calloc(sizeof(float3), ne * 6); // 6 edges/elem
+        tracer->m = (float3*)calloc(sizeof(float3), ne * 6); // 6 edges/elem
+
+        for (i = 0; i < ne; i++) {
+            ebase = i << 2;
+
+            for (j = 0; j < 6; j++) {
+                e1 = elems[ebase + pairs[j][1]] - 1;
+                e0 = elems[ebase + pairs[j][0]] - 1;
+                vec_diff3(&nodes[e0], &nodes[e1], (FLOAT3*)(tracer->d + i * 6 + j));
+                vec_cross3(&nodes[e0], &nodes[e1], (FLOAT3*)(tracer->m + i * 6 + j));
+            }
+        }
+    } else if (tracer->method == rtHavel || tracer->method == rtBadouel) {
+        int ea, eb, ec;
+        float3 vecAB = {0.f}, vecAC = {0.f};
+
+        tracer->d = NULL;
+        tracer->m = (float3*)calloc(sizeof(float3), ne * 12);
+
+        for (i = 0; i < ne; i++) {
+            ebase = i << 2;
+
+            for (j = 0; j < 4; j++) {
+                float4* vecN = tracer->m + 3 * (ebase + j);
+
+                ea = elems[ebase + out[j][0]] - 1;
+                eb = elems[ebase + out[j][1]] - 1;
+                ec = elems[ebase + out[j][2]] - 1;
+                vec_diff3(&nodes[ea], &nodes[eb], (FLOAT3*)&vecAB);
+                vec_diff3(&nodes[ea], &nodes[ec], (FLOAT3*)&vecAC);
+                vec_cross(&vecAB, &vecAC, vecN); /*N is defined as ACxAB in Jiri's code, but not the paper*/
+                vec_cross(&vecAC, vecN, vecN + 1);
+                vec_cross(vecN, &vecAB, vecN + 2);
+
+                Rn2 = 1.f / sqrt(vec_dot(vecN, vecN));
+
+                vec_mult(vecN, Rn2, vecN);
+
+                Rn2 *= Rn2;
+                vec_mult(vecN + 1, Rn2, vecN + 1);
+                vec_mult(vecN + 2, Rn2, vecN + 2);
+#if defined(MMC_USE_SSE) || defined(USE_OPENCL)
+                vecN->w    = vec_dot3((FLOAT3*)vecN,  &nodes[ea]);
+                (vecN + 1)->w = -vec_dot3((FLOAT3*)(vecN + 1), &nodes[ea]);
+                (vecN + 2)->w = -vec_dot3((FLOAT3*)(vecN + 2), &nodes[ea]);
+#endif
+            }
+        }
+    } else if (tracer->method == rtBLBadouel || tracer->method == rtBLBadouelGrid) {
+        tracer->d = NULL;
+    }
+
+    if (tracer->method == rtPlucker || tracer->method == rtBLBadouel || tracer->method == rtBLBadouelGrid) {
+        int ea, eb, ec;
+        float3 vecAB = {0.f}, vecAC = {0.f}, vN = {0.f};
+
+        tracer->n = (float3*)calloc(sizeof(float3), ne * 4);
+
+        for (i = 0; i < ne; i++) {
+            ebase = i << 2;
+            float* vecN = &(tracer->n[ebase].x);
+
+            for (j = 0; j < 4; j++) {
+                ea = elems[ebase + out[j][0]] - 1;
+                eb = elems[ebase + out[j][1]] - 1;
+                ec = elems[ebase + out[j][2]] - 1;
+                vec_diff3(&nodes[ea], &nodes[eb], (FLOAT3*)&vecAB);
+                vec_diff3(&nodes[ea], &nodes[ec], (FLOAT3*)&vecAC);
+
+                vec_cross(&vecAB, &vecAC, &vN); /*N is defined as ACxAB in Jiri's code, but not the paper*/
+
+                Rn2 = 1.f / sqrt(vec_dot(&vN, &vN));
+                vec_mult(&vN, Rn2, &vN);
+                vecN[j] = vN.x;
+                vecN[j + 4] = vN.y;
+                vecN[j + 8] = vN.z;
+#if defined(MMC_USE_SSE) || defined(USE_OPENCL)
+                vecN[j + 12]    = vec_dot3((FLOAT3*)&vN, &nodes[ea]);
+#endif
+            }
+        }
+    }
+}
+
+/**
+ * @brief Clear the ray-tracing data structure
+ *
+ * Deconstructor of the ray-tracing data structure
+ *
+ * @param[out] tracer: the ray-tracer data structure
+ */
+
+void tracer_clear(raytracer* tracer) {
+    if (tracer->d) {
+        free(tracer->d);
+        tracer->d = NULL;
+    }
+
+    if (tracer->m) {
+        free(tracer->m);
+        tracer->m = NULL;
+    }
+
+    if (tracer->n) {
+        free(tracer->n);
+        tracer->n = NULL;
+    }
+
+    tracer->mesh = NULL;
+}
+
+/**
+ * @brief Performing one scattering event of the photon
+ *
+ * This function updates the direction of the photon by performing a scattering calculation
+ *
+ * @param[in] g: anisotropy g
+ * @param[out] dir: current ray direction vector
+ * @param[out] ran: random number generator states
+ * @param[out] ran0: additional random number generator states
+ * @param[out] cfg: the simulation configuration
+ * @param[out] pmom: buffer to store momentum transfer data if needed
+ */
+
+float mc_next_scatter(float g, float3* dir, RandType* ran, RandType* ran0, mcconfig* cfg, float* pmom) {
+
+    float nextslen;
+    float sphi = 0.f, cphi = 0.f, tmp0, theta, stheta, ctheta, tmp1;
+    float3 p;
+
+    rand_need_more(ran, ran0);
+
+    //random scattering length (normalized)
+#ifdef MMC_USE_SSE_MATH
+    nextslen = rand_next_scatlen_ps(ran);
+#else
+    nextslen = rand_next_scatlen(ran);
+#endif
+
+    //random arimuthal angle
+#ifdef MMC_USE_SSE_MATH
+    rand_next_aangle_sincos(ran, &sphi, &cphi);
+#else
+    tmp0 = TWO_PI * rand_next_aangle(ran); //next arimuth angle
+    mmc_sincosf(tmp0, &sphi, &cphi);
+#endif
+
+    //Henyey-Greenstein Phase Function, "Handbook of Optical Biomedical Diagnostics",2002,Chap3,p234
+    //see Boas2002
+
+    if (g > EPS) { //if g is too small, the distribution of theta is bad
+        tmp0 = (1.f - g * g) / (1.f - g + 2.f * g * rand_next_zangle(ran));
+        tmp0 *= tmp0;
+        tmp0 = (1.f + g * g - tmp0) / (2.f * g);
+
+        // when ran=1, CUDA will give me 1.000002 for tmp0 which produces nan later
+        if (tmp0 > 1.f) {
+            tmp0 = 1.f;
+        }
+
+        if (tmp0 < -1.f) {
+            tmp0 = -1.f;
+        }
+
+        theta = acosf(tmp0);
+        stheta = sqrt(1.f - tmp0 * tmp0);
+        //stheta=sinf(theta);
+        ctheta = tmp0;
+    } else {
+        theta = acosf(2.f * rand_next_zangle(ran) - 1.f);
+        mmc_sincosf(theta, &stheta, &ctheta);
+    }
+
+    if ( dir->z > -1.f + EPS && dir->z < 1.f - EPS ) {
+        tmp0 = 1.f - dir->z * dir->z; //reuse tmp to minimize registers
+        tmp1 = 1.f / sqrtf(tmp0);
+        tmp1 = stheta * tmp1;
+
+        p.x = tmp1 * (dir->x * dir->z * cphi - dir->y * sphi) + dir->x * ctheta;
+        p.y = tmp1 * (dir->y * dir->z * cphi + dir->x * sphi) + dir->y * ctheta;
+        p.z = -tmp1 * tmp0 * cphi             + dir->z * ctheta;
+    } else {
+        p.x = stheta * cphi;
+        p.y = stheta * sphi;
+        p.z = (dir->z > 0.f) ? ctheta : -ctheta;
+    }
+
+    if (cfg->ismomentum) {
+        pmom[0] += (1.f - ctheta);
+    }
+
+    dir->x = p.x;
+    dir->y = p.y;
+    dir->z = p.z;
+    return nextslen;
+}
+
+#ifndef MCX_CONTAINER
+
+/**
+ * @brief Save the fluence output to a file
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration
+ */
+
+static void mesh_saveweightdata(tetmesh* mesh, mcconfig* cfg, int isref, double* field) {
+    FILE* fp;
+    int i, j, datalen = (cfg->method == rtBLBadouelGrid) ? cfg->crop0.z : ( (cfg->basisorder) ? mesh->nn : mesh->ne);
+    char fweight[MAX_FULL_PATH];
+    double* data = (field) ? field : mesh->weight;
+    int nslots = mesh_outputslots(cfg);
+
+    if (isref) {
+        data = mesh->dref;
+        datalen = mesh->nf;
+        nslots = cfg->srcnum;  /* mesh->dref holds nf * maxgate values per source */
+    }
+
+    if (cfg->rootpath[0]) {
+        sprintf(fweight, "%s%c%s%s.dat", cfg->rootpath, pathsep, cfg->session, (isref ? "_dref" : ""));
+    } else {
+        sprintf(fweight, "%s%s.dat", cfg->session, (isref ? "_dref" : ""));
+    }
+
+    if (cfg->outputformat >= ofBin && cfg->outputformat <= ofBJNifti) {
+        uint3 dim0 = cfg->dim;
+
+        if (cfg->method != rtBLBadouelGrid) {
+            cfg->dim.x = nslots;
+            cfg->dim.y = cfg->maxgate;
+            cfg->dim.z = datalen;
+        }
+
+        mcx_savedata(data, (size_t)datalen * cfg->maxgate * nslots, cfg, isref);  /* the surface reflectance if isref */
+        cfg->dim = dim0;
+        return;
+    }
+
+    if ((fp = fopen(fweight, "wt")) == NULL) {
+        MESH_ERROR("can not open weight file to write");
+    }
+
+    if (nslots > cfg->srcnum) {
+        /* adjoint / multi-source: exportfield laid out as [slot, gate, vox] (slot slowest);
+         * stride matches mmc_cu_host.cu post-normalize convention (slot_stride = datalen*maxgate). */
+        for (int slot = 0; slot < nslots; slot++) {
+            for (i = 0; i < cfg->maxgate; i++) {
+                for (j = 0; j < datalen; j++) {
+                    size_t shift = (size_t)slot * datalen * cfg->maxgate + (size_t)i * datalen + j;
+
+                    if (fprintf(fp, "%d\t%d\t%e\n", j + 1, slot + 1, data[shift]) == 0) {
+                        MESH_ERROR("can not write to weight file");
+                    }
+                }
+            }
+        }
+    } else {
+        for (i = 0; i < cfg->maxgate; i++) {
+            for (j = 0; j < datalen; j++) {
+                if (1 == cfg->srcnum) {
+                    if (fprintf(fp, "%d\t%e\n", j + 1, data[i * datalen + j]) == 0) {
+                        MESH_ERROR("can not write to weight file");
+                    }
+                } else { // multiple sources for pattern illumination type
+                    int k, shift;
+
+                    for (k = 0; k < cfg->srcnum; k++) {
+                        shift = (i * datalen + j) * cfg->srcnum + k;
+
+                        if (fprintf(fp, "%d\t%d\t%e\n", j + 1, k + 1, data[shift]) == 0) {
+                            MESH_ERROR("can not write to weight file");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fclose(fp);
+}
+
+/**
+ * @brief Save the output field, and for an RF (frequency-domain) forward simulation
+ * its imaginary part too
+ *
+ * The real part (mesh->weight) goes to <session>.<ext> as before.  The imaginary part
+ * of an RF forward run, which mmclab and pmmc return as the imaginary part of a complex
+ * array, is otherwise lost in standalone mode: it is written to <session>_imag.<ext>
+ * in the same format and layout.
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration
+ * @param[in] isref: 1 to save the surface diffuse reflectance (mesh->dref) instead
+ */
+
+void mesh_saveweight(tetmesh* mesh, mcconfig* cfg, int isref) {
+    mesh_saveweightdata(mesh, cfg, isref, NULL);
+
+    if (!isref && cfg->omega > 0.f && cfg->seed != SEED_FROM_FILE && cfg->exportadjoint != NULL) {
+        int datalen = (cfg->method == rtBLBadouelGrid) ? cfg->crop0.z : ( (cfg->basisorder) ? mesh->nn : mesh->ne);
+        int nslots = mesh_outputslots(cfg);
+        size_t len = (size_t)datalen * cfg->maxgate * nslots, k;
+        double* imag = (double*)malloc(sizeof(double) * len);
+        char session[MAX_SESSION_LENGTH];
+
+        for (k = 0; k < len; k++) {
+            imag[k] = cfg->exportadjoint[k];
+        }
+
+        memcpy(session, cfg->session, MAX_SESSION_LENGTH);
+        snprintf(cfg->session, MAX_SESSION_LENGTH, "%.*s_imag", MAX_SESSION_LENGTH - 6, session);
+        mesh_saveweightdata(mesh, cfg, 0, imag);
+        memcpy(cfg->session, session, MAX_SESSION_LENGTH);
+        free(imag);
+    }
+}
+
+/**
+ * @brief Save adjoint Jacobian output to a JNIfTI/BJNIfTI file (standalone mode only)
+ *
+ * Saves one or two Jacobian components (mua/D/mus/musp) as float32 data to files named
+ * "session_jXXX.jnii" or ".bnii".  The first component is written to "session_j<name1>.jnii"
+ * and, for dual output types, the second component to "session_j<name2>.jnii".
+ *
+ * @param[in] cfg: simulation configuration (uses outputtype, outputformat, session, rootpath)
+ * @param[in] jac: float buffer holding the Jacobian (layout: [Re_J1,Re_J2,Im_J1,Im_J2]*adjlen)
+ * @param[in] nch: number of Jacobian channels (Ns*Nd, or the rows of cfg.sdmap)
+ * @param[in] isrfforward: 1 if RF mode (complex Jacobian), 0 for CW
+ * @param[in] isdual: 1 for dual types (two Jacobians), 0 for single
+ */
+
+void mesh_savejacob(mcconfig* cfg, tetmesh* mesh, float* jac, int nch, int isrfforward, int isdual) {
+    char name[MAX_FULL_PATH];
+    int ismesh = (cfg->method != rtBLBadouelGrid);
+    size_t datalen = ismesh ? (size_t)mesh->nn : (size_t)cfg->crop0.z;
+    size_t adjlen = datalen * nch;
+
+    /* Jacobian component name suffixes per output type */
+    const char* suffix1 = "jmua";   /* first (or only) Jacobian component */
+    const char* suffix2 = "jd";     /* second Jacobian component (dual types only) */
+
+    switch (cfg->outputtype) {
+        case otAdjoint:
+            suffix1 = "jmua";
+            break;
+
+        case otAdjointDcoeff:
+            suffix1 = "jd";
+            break;
+
+        case otAdjointMus:
+            suffix1 = "jmus";
+            break;
+
+        case otAdjointMusp:
+            suffix1 = "jmusp";
+            break;
+
+        case otAdjointMuaD:
+            suffix1 = "jmua";
+            suffix2 = "jd";
+            break;
+
+        case otAdjointMuaMusp:
+            suffix1 = "jmua";
+            suffix2 = "jmusp";
+            break;
+
+        default:
+            suffix1 = "jacobian";
+            break;
+    }
+
+    /* Dimensions:
+     *   grid mode: [Nx, Ny, Nz, maxgate, Nch]        (jndim = 5)
+     *   mesh mode: [nn, Nch]                         (jndim = 2, CW only)
+     * Nch: Ns*Nd, or the rows of cfg.sdmap */
+    uint jdims[5];
+    float jvoxsz[5];
+    int jndim;
+
+    if (ismesh) {
+        jdims[0]  = (uint)mesh->nn;
+        jdims[1]  = (uint)nch;
+        jvoxsz[0] = 1.f;
+        jvoxsz[1] = 1.f;
+        jndim = 2;
+    } else {
+        jdims[0] = (uint)cfg->dim.x;
+        jdims[1] = (uint)cfg->dim.y;
+        jdims[2] = (uint)cfg->dim.z;
+        jdims[3] = (uint)cfg->maxgate;
+        jdims[4] = (uint)nch;
+        jvoxsz[0] = cfg->steps.x;
+        jvoxsz[1] = cfg->steps.y;
+        jvoxsz[2] = cfg->steps.z;
+        jvoxsz[3] = cfg->tstep;
+        jvoxsz[4] = 1.f;
+        jndim = 5;
+    }
+
+    /* RF: pack real and imaginary parts; for single-component: [Re, Im] */
+    /* Build output format selection for save */
+    uint jdims_ri[6];
+    float jvoxsz_ri[6];
+
+    if (isrfforward) {
+        /* For RF: append a trailing axis of size 2 for [re, im] */
+        memcpy(jdims_ri, jdims, sizeof(jdims));
+        memcpy(jvoxsz_ri, jvoxsz, sizeof(jvoxsz));
+        jdims_ri[jndim] = 2;
+        jvoxsz_ri[jndim] = 1.f;
+        jndim++;
+    }
+
+    /* Save first Jacobian component */
+    if (cfg->rootpath[0]) {
+        snprintf(name, sizeof(name), "%s/%s_%s", cfg->rootpath, cfg->session, suffix1);
+    } else {
+        snprintf(name, sizeof(name), "%s_%s", cfg->session, suffix1);
+    }
+
+    if (!isrfforward) {
+        /* CW: single real array of size adjlen */
+        if (cfg->outputformat == ofJNifti) {
+            mcx_savefloatjnii(jac, jndim, jdims, jvoxsz, name, cfg);
+        } else if (cfg->outputformat == ofBJNifti) {
+            mcx_savefloatbnii(jac, jndim, jdims, jvoxsz, name, cfg);
+        }
+    } else {
+        /* RF: Re(J1) in jac[0..adjlen-1], Im(J1) in jac[(isdual?2:1)*adjlen..] */
+        size_t imoffset = (isdual ? 2 : 1) * adjlen;
+        float* ribuf = (float*)malloc(sizeof(float) * 2 * adjlen);
+
+        if (ribuf) {
+            memcpy(ribuf,          jac,             adjlen * sizeof(float));
+            memcpy(ribuf + adjlen, jac + imoffset,  adjlen * sizeof(float));
+
+            if (cfg->outputformat == ofJNifti) {
+                mcx_savefloatjnii(ribuf, jndim, jdims_ri, jvoxsz_ri, name, cfg);
+            } else if (cfg->outputformat == ofBJNifti) {
+                mcx_savefloatbnii(ribuf, jndim, jdims_ri, jvoxsz_ri, name, cfg);
+            }
+
+            free(ribuf);
+        }
+    }
+
+    /* Save second Jacobian component for dual types */
+    if (isdual) {
+        if (cfg->rootpath[0]) {
+            snprintf(name, sizeof(name), "%s/%s_%s", cfg->rootpath, cfg->session, suffix2);
+        } else {
+            snprintf(name, sizeof(name), "%s_%s", cfg->session, suffix2);
+        }
+
+        if (!isrfforward) {
+            /* CW dual: second component starts at jac + adjlen */
+            if (cfg->outputformat == ofJNifti) {
+                mcx_savefloatjnii(jac + adjlen, jndim, jdims, jvoxsz, name, cfg);
+            } else if (cfg->outputformat == ofBJNifti) {
+                mcx_savefloatbnii(jac + adjlen, jndim, jdims, jvoxsz, name, cfg);
+            }
+        } else {
+            /* RF dual: Re(J2) in jac[adjlen..2*adjlen-1], Im(J2) in jac[3*adjlen..4*adjlen-1] */
+            float* ribuf2 = (float*)malloc(sizeof(float) * 2 * adjlen);
+
+            if (ribuf2) {
+                memcpy(ribuf2,          jac + adjlen,          adjlen * sizeof(float));
+                memcpy(ribuf2 + adjlen, jac + 3 * adjlen,      adjlen * sizeof(float));
+
+                if (cfg->outputformat == ofJNifti) {
+                    mcx_savefloatjnii(ribuf2, jndim, jdims_ri, jvoxsz_ri, name, cfg);
+                } else if (cfg->outputformat == ofBJNifti) {
+                    mcx_savefloatbnii(ribuf2, jndim, jdims_ri, jvoxsz_ri, name, cfg);
+                }
+
+                free(ribuf2);
+            }
+        }
+    }
+}
+
+
+
+/**
+ * @brief Save detected photon data into an .mch history file
+ *
+ * @param[in] ppath: buffer points to the detected photon data (partial-path, det id, etc)
+ * @param[in] seeds: buffer points to the detected photon seeds
+ * @param[in] count: how many photons are detected
+ * @param[in] seedbyte: how many bytes per detected photon seed
+ * @param[in] cfg: the simulation configuration
+ */
+
+void mesh_savedetphoton(float* ppath, void* seeds, int count, int seedbyte, mcconfig* cfg) {
+    FILE* fp;
+    char fhistory[MAX_FULL_PATH], filetag;
+
+    filetag = ((cfg->his.detected == 0  && cfg->his.savedphoton) ? 't' : 'h');
+
+    if (cfg->rootpath[0]) {
+        sprintf(fhistory, "%s%c%s.mc%c", cfg->rootpath, pathsep, cfg->session, filetag);
+    } else {
+        sprintf(fhistory, "%s.mc%c", cfg->session, filetag);
+    }
+
+    if ((fp = fopen(fhistory, "wb")) == NULL) {
+        MESH_ERROR("can not open history file to write");
+    }
+
+    cfg->his.unitinmm = cfg->unitinmm;
+    cfg->his.srcnum = cfg->srcnum;
+    cfg->his.detnum = cfg->detnum;
+
+    if (cfg->issaveseed && seeds != NULL) {
+        cfg->his.seedbyte = seedbyte;
+    }
+
+    fwrite(&(cfg->his), sizeof(history), 1, fp);
+    fwrite(ppath, sizeof(float), count * cfg->his.colcount, fp);
+
+    if (cfg->issaveseed && seeds != NULL) {
+        fwrite(seeds, seedbyte, count, fp);
+    }
+
+    fclose(fp);
+}
+
+#endif
+
+/**
+ * @brief Save binned detected photon data over an area-detector as time-resolved 2D images
+ *
+ * When an area detector is used (such as a CCD), storing all detected photons can generate
+ * a huge output file. This can be mitigated by accumulate the data first to a rasterized
+ * detector grid, and then save only the integrated data.
+ *
+ * @param[out] detmap: buffer points to the output detector data array
+ * @param[in] ppath: buffer points to the detected photon data (partial-path, det id, etc)
+ * @param[in] count: how many photons are detected
+ * @param[in] cfg: the simulation configuration
+ * @param[in] mesh: the mesh object
+ */
+
+void mesh_getdetimage(float* detmap, float* ppath, int count, mcconfig* cfg, tetmesh* mesh) {
+    // cfg->issaveexit is 2 for this mode
+    int colcount = (2 + (cfg->ismomentum > 0)) * cfg->his.maxmedia + 6 + 2;
+    float x0 = cfg->detpos[0].x;
+    float y0 = cfg->detpos[0].y;
+    float xrange = cfg->detparam1.x + cfg->detparam2.x;
+    float yrange = cfg->detparam1.y + cfg->detparam2.y;
+    int xsize = cfg->detparam1.w;
+    int ysize = cfg->detparam2.w;
+    int i, j, xindex, yindex, ntg, offset;
+    float unitinmm = cfg->his.unitinmm;
+
+    float xloc, yloc, weight, path;
+
+    for (i = 0; i < count; i++) {
+        path = 0;
+        weight = ppath[(i + 1) * colcount - 1];
+
+        for (j = 1; j <= cfg->his.maxmedia; j++) {
+            path += ppath[i * colcount + j + cfg->his.maxmedia] * mesh->med[j].n;
+            weight *= expf(-ppath[i * colcount + j + cfg->his.maxmedia] * mesh->med[j].mua * unitinmm);
+        }
+
+        ntg = (int) path * R_C0 / cfg->tstep;
+
+        if (ntg > cfg->maxgate - 1) {
+            ntg = cfg->maxgate - 1;
+        }
+
+        xloc = ppath[(i + 1) * colcount - 7];
+        yloc = ppath[(i + 1) * colcount - 6];
+        xindex = (xloc - x0) / xrange * xsize;
+
+        if (xindex < 0 || xindex > xsize - 1) {
+            continue;
+        }
+
+        yindex = (yloc - y0) / yrange * ysize;
+
+        if (yindex < 0 || yindex > ysize - 1) {
+            continue;
+        }
+
+        offset = ntg * xsize * ysize;
+        detmap[offset + yindex * xsize + xindex] += weight;
+    }
+}
+
+#ifndef MCX_CONTAINER
+
+/**
+ * @brief Save binned detected photon data over an area-detector
+ *
+ * function for saving binned detected photon data into time-resolved 2D images
+ *
+ * @param[in] detmap: buffer points to the output detector data array
+ * @param[in] cfg: the simulation configuration
+ */
+
+void mesh_savedetimage(float* detmap, mcconfig* cfg) {
+
+    FILE* fp;
+    char fhistory[MAX_FULL_PATH];
+
+    if (cfg->rootpath[0]) {
+        sprintf(fhistory, "%s%c%s.img", cfg->rootpath, pathsep, cfg->session);
+    } else {
+        sprintf(fhistory, "%s.img", cfg->session);
+    }
+
+    if ((fp = fopen(fhistory, "wb")) == NULL) {
+        MESH_ERROR("can not open detector image file to write");
+    }
+
+    fwrite(detmap, sizeof(float), cfg->detparam1.w * cfg->detparam2.w * cfg->maxgate, fp);
+    fclose(fp);
+}
+
+#endif
+
+/**
+ * @brief Recompute the detected photon weight from the partial-pathlengths
+ *
+ * This function currently does not consider the final transmission coeff before
+ * the photon being detected.
+ *
+ * @param[in] photonid: index of the detected photon
+ * @param[in] colcount: how many 4-byte records per detected photon
+ * @param[in] ppath: buffer points to the detected photon data (partial-path, det id, etc)
+ * @param[in] cfg: the simulation configuration
+ */
+
+float mesh_getdetweight(int photonid, int colcount, float* ppath, mcconfig* cfg) {
+
+    float x0 = cfg->detpos[0].x;
+    float y0 = cfg->detpos[0].y;
+    float xrange = cfg->detparam1.x + cfg->detparam2.x;
+    float yrange = cfg->detparam1.y + cfg->detparam2.y;
+    int xsize = cfg->detparam1.w;
+    int ysize = cfg->detparam2.w;
+    float xloc = ppath[(photonid + 1) * colcount - 7];
+    float yloc = ppath[(photonid + 1) * colcount - 6];
+    int xindex = (xloc - x0) / xrange * xsize;
+    int yindex = (yloc - y0) / yrange * ysize;
+
+    if (xindex < 0 || xindex > xsize - 1 || yindex < 0 || yindex > ysize - 1) {
+        MESH_ERROR("photon location not within the detection plane");
+    }
+
+    return cfg->detpattern[yindex * xsize + xindex];
+}
+
+/**
+ * @brief Function to normalize the fluence and remove influence from photon number and volume
+ *
+ * This function outputs the Green's function from the raw simulation data. This needs
+ * to divide the total simulated photon energy, normalize the volumes of each node/elem,
+ * and consider the length unit and time-gates
+ *
+ * @param[in] mesh: the mesh object
+ * @param[in] cfg: the simulation configuration
+ * @param[in] Eabsorb: total absorbed energy from ray-tracing accummulation
+ * @param[in] Etotal: total launched energy, equal to photon number if not pattern-source
+ */
+
+/*see Eq (1) in Fang&Boas, Opt. Express, vol 17, No.22, pp. 20178-20190, Oct 2009*/
+float mesh_normalize(tetmesh* mesh, mcconfig* cfg, float Eabsorb, float Etotal, int pair) {
+    int i, j, k;
+    double energydeposit = 0.f, energyelem, normalizor;
+    int* ee;
+    int datalen = (cfg->method == rtBLBadouelGrid) ? cfg->crop0.z : ( (cfg->basisorder) ? mesh->nn : mesh->ne);
+
+    if (cfg->issaveref && mesh->dref) {
+        float normalizor = 1.f / Etotal;
+
+        for (i = 0; i < cfg->maxgate; i++)
+            for (j = 0; j < mesh->nf; j++) {
+                mesh->dref[i * mesh->nf + j] *= normalizor;
+            }
+    }
+
+    if (cfg->seed == SEED_FROM_FILE && (cfg->outputtype == otJacobian || cfg->outputtype == otWL || cfg->outputtype == otWP)) {
+        float normalizor = 1.f / (DELTA_MUA * cfg->nphoton);
+
+        if (cfg->outputtype == otWL || cfg->outputtype == otWP) {
+            normalizor = 1.f / Etotal;    /*Etotal is total detected photon weight in the replay mode*/
+        }
+
+        for (i = 0; i < cfg->maxgate; i++)
+            for (j = 0; j < datalen; j++) {
+                mesh->weight[(i * datalen + j)*cfg->srcnum + pair] *= normalizor;
+            }
+
+        return normalizor;
+    }
+
+    if (cfg->outputtype == otEnergy) {
+        normalizor = 1.f / Etotal;
+
+        for (i = 0; i < cfg->maxgate; i++)
+            for (j = 0; j < datalen; j++) {
+                mesh->weight[(i * datalen + j)*cfg->srcnum + pair] *= normalizor;
+            }
+
+        return normalizor;
+    }
+
+    /* RF mode: locate the imag-fluence buffer for this source slot. The
+     * exportadjoint layout for srcnum==1 (single or adjoint) is slot-major
+     * (slot * datalen * maxgate + gate * datalen + node); for srcnum>1 the
+     * imag path isn't currently populated (pattern source RF isn't supported
+     * through this normalization route), so we only resolve imag_slot when
+     * srcnum==1 to stay safe. */
+    int is_rf = (cfg->omega > 0.f) && (cfg->seed != SEED_FROM_FILE)
+                && (cfg->exportadjoint != NULL) && (cfg->srcnum == 1);
+    float* imag_slot = is_rf ? (cfg->exportadjoint + (size_t)pair * (size_t)datalen * (size_t)cfg->maxgate) : NULL;
+
+    if (cfg->method == rtBLBadouelGrid) {
+        normalizor = 1.0 / (Etotal * cfg->unitinmm * cfg->unitinmm * cfg->unitinmm); /*scaling factor*/
+    } else {
+        if (cfg->basisorder) {
+            for (i = 0; i < cfg->maxgate; i++)
+                for (j = 0; j < datalen; j++)
+                    if (mesh->nvol[j] > 0.f) {
+                        mesh->weight[(i * datalen + j)*cfg->srcnum + pair] /= mesh->nvol[j];
+
+                        if (imag_slot) {
+                            imag_slot[i * datalen + j] /= mesh->nvol[j];
+                        }
+                    }
+
+            for (i = 0; i < mesh->ne; i++) {
+                ee = (int*)(mesh->elem + i * mesh->elemlen);
+                energyelem = 0.f;
+
+                for (j = 0; j < cfg->maxgate; j++)
+                    for (k = 0; k < 4; k++) {
+                        energyelem += mesh->weight[(j * mesh->nn + ee[k] - 1) * cfg->srcnum + pair];    /*1/4 factor is absorbed two lines below*/
+                    }
+
+                energydeposit += energyelem * mesh->evol[i] * mesh->med[mesh->type[i]].mua; /**mesh->med[mesh->type[i]].n;*/
+            }
+
+            normalizor = Eabsorb / (Etotal * energydeposit * 0.25f); /*scaling factor*/
+        } else {
+            /* the tracers deposit the fluence-like (w0-w)/mua: the absorbed energy
+               of an element is its deposit times its mua, and its fluence is the
+               deposit divided by its volume (dividing by mua again made the output
+               of every medium off by the ratio of its mua to the others') */
+            for (i = 0; i < datalen; i++)
+                for (j = 0; j < cfg->maxgate; j++) {
+                    energydeposit += mesh->weight[(j * datalen + i) * cfg->srcnum + pair] * mesh->med[mesh->type[i]].mua;
+                }
+
+            for (i = 0; i < datalen; i++) {
+                energyelem = mesh->evol[i];
+
+                for (j = 0; j < cfg->maxgate; j++) {
+                    mesh->weight[(j * datalen + i) * cfg->srcnum + pair] /= energyelem;
+
+                    /* the RF imaginary part is scaled with the real part, or the
+                       phase of element-based RF output is off */
+                    if (imag_slot) {
+                        imag_slot[j * datalen + i] /= energyelem;
+                    }
+                }
+            }
+
+            normalizor = Eabsorb / (Etotal * energydeposit); /*scaling factor*/
+        }
+
+        /* RF: the deposits are complex fluences; in CW the ratio above is the
+           absorbed energy over the integral of mua*phi, which is about 1/Etotal,
+           but the magnitude of a complex fluence integrates to less than the
+           absorbed energy (|sum w*exp(i*theta)| < sum w), so the ratio grew with
+           the frequency (x1.1 at 200 MHz); normalize by the launched energy, as
+           the grid output and mcx do */
+        if (imag_slot) {
+            normalizor = 1.0 / Etotal;
+        }
+    }
+
+    if (cfg->outputtype == otFlux) {
+        normalizor /= cfg->tstep;
+    }
+
+    for (i = 0; i < cfg->maxgate; i++)
+        for (j = 0; j < datalen; j++) {
+            mesh->weight[(i * datalen + j)*cfg->srcnum + pair] *= normalizor;
+
+            /* RF imag fluence: apply the same scalar normalizor so phi_im stays
+             * paired with the real fluence in fluence-per-unit-source-energy
+             * units. The per-node nvol division (basisorder=1) was already
+             * applied to imag_slot in lockstep with mesh->weight above. */
+            if (imag_slot) {
+                imag_slot[(size_t)i * (size_t)datalen + (size_t)j] *= (float)normalizor;
+            }
+        }
+
+    return normalizor;
+}
+
+
+/**
+ * @brief Compute the effective reflection coefficient Reff using approximated formula
+ *
+ * accuracy is limited
+ * see https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4482362/
+ *
+ * @param[out] tracer: the ray-tracer data structure
+ * @param[in] pmesh: the mesh object
+ * @param[in] methodid: the ray-tracing algorithm to be used
+ */
+
+double mesh_getreff_approx(double n_in, double n_out) {
+    double nn = n_in / n_out;
+    return -1.440 / (nn * nn) + 0.710 / nn + 0.668 + 0.0636 * nn;
+}
+
+/**
+ * @brief Compute the effective reflection coefficient Reff
+ *
+ * @param[in] n_in: refractive index of the diffusive medium
+ * @param[in] n_out: refractive index of the non-diffusive medium
+ */
+
+double mesh_getreff(double n_in, double n_out) {
+    double oc = asin(1.0 / n_in); // critical angle
+    const double count = 1000.0;
+    const double ostep = (M_PI / (2.0 * count));
+    double r_phi = 0.0, r_j = 0.0;
+    double o, cosop, coso, r_fres, tmp;
+    int i;
+
+    for (i = 0; i < count; i++) {
+        o = i * ostep;
+        coso = cos(o);
+
+        if (o < oc) {
+            cosop = n_in * sin(o);
+            cosop = sqrt(1. - cosop * cosop);
+            tmp = (n_in * cosop - n_out * coso) / (n_in * cosop + n_out * coso);
+            r_fres = 0.5 * tmp * tmp;
+            tmp = (n_in * coso - n_out * cosop) / (n_in * coso + n_out * cosop);
+            r_fres += 0.5 * tmp * tmp;
+        } else {
+            r_fres = 1.f;
+        }
+
+        r_phi += 2.0 * sin(o) * coso * r_fres;
+        r_j += 3.0 * sin(o) * coso * coso * r_fres;
+    }
+
+    r_phi *= ostep;
+    r_j *= ostep;
+    return (r_phi + r_j) / (2.0 - r_phi + r_j);
+}
+
+
+/**
+ * @brief Validate all input fields, and warn incompatible inputs
+ *
+ * Perform self-checking and raise exceptions or warnings when input error is detected
+ *
+ * @param[in,out] cfg: the simulation configuration structure
+ * @param[out] mesh: the mesh data structure
+ */
+
+void mesh_validate(tetmesh* mesh, mcconfig* cfg) {
+    int i, j, *ee, datalen;
+
+    if (mesh->prop == 0) {
+        MMC_ERROR(999, "you must define the 'prop' field in the input structure");
+    }
+
+    /* a surface-only mesh for OptiX (cfg.face with 5 columns, no cfg.elem) */
+    if (mesh->ne == 0 && cfg->surf && cfg->surfnum > 0) {
+        if (cfg->compute != cbOptiX || cfg->method != rtBLBadouelGrid) {
+            MMC_ERROR(999, "a surface-only mesh ('face' with 5 columns, no 'elem') requires cfg.compute='optix' and cfg.method='grid'");
+        }
+
+        if (mesh->node == NULL || mesh->nn == 0) {
+            MMC_ERROR(999, "a surface-only mesh needs the 'node' field");
+        }
+
+        free(mesh->weight);
+        mesh_createdualmesh(mesh, cfg);
+        cfg->basisorder = 0;
+        mesh->weight = (double*)calloc(sizeof(double) * cfg->crop0.z * cfg->srcnum, cfg->maxgate);
+
+        /* nodes or voxels times time gates times sources: too many for memory
+           gives NULL, which the tracer then accumulates into */
+        if (mesh->weight == NULL) {
+            MESH_ERROR("not enough memory for the output: reduce the mesh, grid or number of time gates");
+        }
+
+        if (cfg->unitinmm != 1.f) {
+            for (i = 1; i <= mesh->prop; i++) {
+                mesh->med[i].mus *= cfg->unitinmm;
+                mesh->med[i].mua *= cfg->unitinmm;
+            }
+        }
+
+        cfg->e0 = -1;  /* the OptiX kernel finds the initial medium by tracing a ray */
+        mesh_loadsurf(mesh, cfg);
+        return;
+    }
+
+    if (mesh->nn == 0 || mesh->ne == 0 || mesh->evol == NULL || mesh->facenb == NULL) {
+        MMC_ERROR(999, "a complete input mesh include 'node','elem','facenb' and 'evol'");
+    }
+
+    if (mesh->node == NULL || mesh->elem == NULL || mesh->prop == 0) {
+        MMC_ERROR(999, "You must define 'mesh' and 'prop' fields.");
+    }
+
+    if (mesh->nvol) {
+        free(mesh->nvol);
+    }
+
+    mesh->nvol = (float*)calloc(sizeof(float), mesh->nn);
+
+    for (i = 0; i < mesh->ne; i++) {
+        if (mesh->type[i] <= 0) {
+            continue;
+        }
+
+        ee = (int*)(mesh->elem + i * mesh->elemlen);
+
+        for (j = 0; j < 4; j++) {
+            mesh->nvol[ee[j] - 1] += mesh->evol[i] * 0.25f;
+        }
+    }
+
+    if (mesh->weight) {
+        free(mesh->weight);
+    }
+
+    if (cfg->method == rtBLBadouelGrid) {
+        mesh_createdualmesh(mesh, cfg);
+        cfg->basisorder = 0;
+    }
+
+    datalen = (cfg->method == rtBLBadouelGrid) ? cfg->crop0.z : ( (cfg->basisorder) ? mesh->nn : mesh->ne);
+    {
+        /* For adjoint Jacobian mode, field buffer needs nsrcslots = extrasrclen = srcnum + detnum slots */
+        int nsrcslots = (cfg->extrasrclen > cfg->srcnum) ? cfg->extrasrclen : cfg->srcnum;
+        mesh->weight = (double*)calloc(sizeof(double) * datalen * nsrcslots, cfg->maxgate);
+
+        /* nodes or voxels times time gates times sources: too many for memory
+           gives NULL, which the tracer then accumulates into */
+        if (mesh->weight == NULL) {
+            MESH_ERROR("not enough memory for the output: reduce the mesh, grid or number of time gates");
+        }
+    }
+
+    if (cfg->unitinmm != 1.f) {
+        for (i = 1; i <= mesh->prop; i++) {
+            mesh->med[i].mus *= cfg->unitinmm;
+            mesh->med[i].mua *= cfg->unitinmm;
+        }
+    }
+
+    /*make medianum+1 the same as medium 0*/
+    if (cfg->isextdet) {
+        mesh->med = (medium*)realloc(mesh->med, sizeof(medium) * (mesh->prop + 2));
+        memcpy(mesh->med + mesh->prop + 1, mesh->med, sizeof(medium));
+
+        for (i = 0; i < mesh->ne; i++) {
+            if (mesh->type[i] == -2) {
+                mesh->type[i] = mesh->prop + 1;
+            }
+        }
+    }
+}
+
+/**
+ * @brief The number of output slots: one per source (srcid<0, which the adjoint outputs also set)
+ * or one per pattern
+ *
+ * With several sources, srcid=0 gives all of them in one output, as documented and as in mcx,
+ * and srcid>0 only the selected one; the buffers are sized for every source.
+ *
+ * @param[in] cfg: the simulation configuration
+ */
+
+int mesh_outputslots(const mcconfig* cfg) {
+    return (cfg->extrasrclen > cfg->srcnum && cfg->srcid < 0) ? cfg->extrasrclen : cfg->srcnum;
+}
+
+/**
+ * @brief Add up the per-source slots of a srcid=0 multi-source run into the first slot
+ *
+ * The GPU kernels launch each photon from a random source and deposit it in that source's slot;
+ * every slot is normalized by the total launched energy, so their sum is the output of all the
+ * sources together, as mcx gives for srcid=0. The slots are [slot][gate][datalen].
+ *
+ * @param[in,out] mesh: the mesh object
+ * @param[in,out] cfg: the simulation configuration; its exportfield (or mesh->weight) and, for RF,
+ *                     exportadjoint are merged
+ */
+
+void mesh_mergesrcslots(tetmesh* mesh, mcconfig* cfg) {
+    size_t datalen, slotlen, k;
+    int slot;
+
+    double* field = (cfg->exportfield) ? cfg->exportfield : mesh->weight;
+
+    if (cfg->srcid != 0 || cfg->extrasrclen <= 1 || cfg->srcnum != 1 || MCX_IS_ADJOINT_TYPE(cfg->outputtype) || field == NULL) {
+        return;
+    }
+
+    datalen = (cfg->method == rtBLBadouelGrid) ? (size_t)cfg->crop0.z : (size_t)((cfg->basisorder) ? mesh->nn : mesh->ne);
+    slotlen = datalen * cfg->maxgate;
+
+    for (slot = 1; slot < cfg->extrasrclen; slot++) {
+        for (k = 0; k < slotlen; k++) {
+            field[k] += field[slot * slotlen + k];
+            field[slot * slotlen + k] = 0.0;
+
+            if (cfg->exportadjoint && cfg->omega > 0.f && cfg->seed != SEED_FROM_FILE) {
+                cfg->exportadjoint[k] += cfg->exportadjoint[slot * slotlen + k];
+                cfg->exportadjoint[slot * slotlen + k] = 0.f;
+            }
+        }
+    }
+}

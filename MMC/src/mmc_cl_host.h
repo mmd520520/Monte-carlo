@@ -1,0 +1,132 @@
+/***************************************************************************//**
+**  \mainpage Mesh-based Monte Carlo (MMC) - a 3D photon simulator
+**
+**  \author Qianqian Fang <q.fang at neu.edu>
+**  \copyright Qianqian Fang, 2010-2026
+**
+**  \section sref Reference:
+**  \li \c (\b Fang2010) Qianqian Fang, <a href="http://www.opticsinfobase.org/abstract.cfm?uri=boe-1-1-165">
+**          "Mesh-based Monte Carlo Method Using Fast Ray-Tracing
+**          in Plucker Coordinates,"</a> Biomed. Opt. Express, 1(1) 165-175 (2010).
+**  \li \c (\b Fang2012) Qianqian Fang and David R. Kaeli,
+**           <a href="https://www.osapublishing.org/boe/abstract.cfm?uri=boe-3-12-3223">
+**          "Accelerating mesh-based Monte Carlo method on modern CPU architectures,"</a>
+**          Biomed. Opt. Express 3(12), 3223-3230 (2012)
+**  \li \c (\b Yao2016) Ruoyang Yao, Xavier Intes, and Qianqian Fang,
+**          <a href="https://www.osapublishing.org/boe/abstract.cfm?uri=boe-7-1-171">
+**          "Generalized mesh-based Monte Carlo for wide-field illumination and detection
+**           via mesh retessellation,"</a> Biomed. Optics Express, 7(1), 171-184 (2016)
+**  \li \c (\b Fang2019) Qianqian Fang and Shijie Yan,
+**          <a href="http://dx.doi.org/10.1117/1.JBO.24.11.115002">
+**          "Graphics processing unit-accelerated mesh-based Monte Carlo photon transport
+**           simulations,"</a> J. of Biomedical Optics, 24(11), 115002 (2019)
+**  \li \c (\b Yuan2021) Yaoshen Yuan, Shijie Yan, and Qianqian Fang,
+**          <a href="https://www.osapublishing.org/boe/fulltext.cfm?uri=boe-12-1-147">
+**          "Light transport modeling in highly complex tissues using the implicit
+**           mesh-based Monte Carlo algorithm,"</a> Biomed. Optics Express, 12(1) 147-161 (2021)
+**
+**  \section slicense License
+**          GPL v3, see LICENSE.txt for details
+*******************************************************************************/
+
+/***************************************************************************//**
+\file    mcx_cl_host.hpp
+
+\brief   OpenCL host code for OpenCL based MMC simulations
+*******************************************************************************/
+
+#ifndef _MMC_HOSTCODE_CL_H
+#define _MMC_HOSTCODE_CL_H
+
+#include "mmc_cl_utils.h"
+#include "mmc_mesh.h"
+#include "mmc_raytrace.h"
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
+#ifndef CL_MEM_LOCATION_HOST_NV
+#define CL_MEM_LOCATION_HOST_NV                     (1 << 0)
+typedef cl_bitfield         cl_mem_flags_NV;
+#endif
+
+#define RO_MEM             (CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR)
+#define WO_MEM             (CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR)
+#define RW_MEM             (CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR)
+#define RW_PTR             (CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR)  /* the kernel writes it (the progress counter) */
+#define NV_PIN             CL_MEM_LOCATION_HOST_NV
+
+#define OCL_ASSERT(x)  ocl_assess((x),__FILE__,__LINE__)
+
+#ifdef _MSC_VER
+#define PRE_ALIGN(x) __declspec(align(x))
+#define POST_ALIGN(x)
+#else
+#define PRE_ALIGN(x)
+#define POST_ALIGN(x) __attribute__ ((aligned(x)))
+#endif
+
+#define RAND_SEED_WORD_LEN      4        //48 bit packed with 64bit length
+
+typedef struct PRE_ALIGN(32) GPU_mcconfig {
+    cl_float4 srcparam1;                  /**< source parameters set 1 */
+    cl_float4 srcparam2;                  /**< source parameters set 2 */
+    cl_int4   crop0;
+    cl_float4 bary0;
+    cl_float3 srcpos;
+    cl_float3 srcdir;
+    cl_float3 nmin;
+    cl_float  tstart, tend;
+    cl_uint   isreflect, issavedet, issaveexit, ismomentum, isspecular;
+    cl_float  Rtstep;
+    cl_float  minenergy;
+    cl_uint   maxdetphoton;
+    cl_uint   maxmedia;
+    cl_uint   detnum;
+    cl_int    voidtime;
+    cl_int    srctype;                    /**< type of the source */
+    cl_uint   issaveref;     /**<1 save diffuse reflectance at the boundary voxels, 0 do not save*/
+    cl_uint   maxgate;
+    cl_uint   debuglevel;           /**< debug flags */
+    cl_int    reclen;                 /**< record (4-byte per record) number per detected photon */
+    cl_int    outputtype;
+    cl_int    elemlen;
+    cl_int    mcmethod;
+    cl_int    method;
+    cl_float  dstep;
+    cl_float  focus;
+    cl_int    nn, ne, nf;
+    cl_float  nout;
+    cl_float  roulettesize;
+    cl_int    srcnum;
+    cl_int    srcelemlen;
+    cl_int    e0;
+    cl_int    isextdet;
+    cl_int    framelen;
+    cl_uint   maxpropdet;
+    cl_uint   normbuf;
+    cl_int    issaveseed;
+    cl_uint   seed;
+    cl_uint   maxjumpdebug;         /**< max number of positions to be saved to save photon trajectory when -D M is used */
+    cl_float  omega;                /**< RF modulation angular frequency (rad/s); 0 for CW */
+    cl_float  oneoverc0;            /**< 1/C0 = 3.335640951981520e-12 s/mm */
+    cl_int    srcid;                /**< < 0 for multi-source (adjoint) mode; >= 0 for single source */
+    cl_int    extrasrclen;          /**< number of extra sources packed into gproperty after media */
+    cl_int    srcpropoffset;        /**< gproperty index where extra sources start (= prop+1+isextdet) */
+    cl_uint   isnodalmua;           /**< 1: read mua per-element from gnodemua centroid (DOT recon); CUDA only */
+    cl_uint   isnodalmusp;          /**< 1: read musp per-element from gnodemusp centroid (RF DOT recon); CUDA only */
+} MCXParam POST_ALIGN(32);
+
+typedef struct POST_ALIGN(32) GPU_reporter {
+    float     raytet;
+    cl_uint   jumpdebug;
+} MCXReporter  POST_ALIGN(32);
+
+void mmc_run_cl(mcconfig* cfg, tetmesh* mesh, raytracer* tracer);
+
+#ifdef  __cplusplus
+}
+#endif
+
+#endif

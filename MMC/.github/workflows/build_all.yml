@@ -1,0 +1,484 @@
+name: build_mmc
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build_all:
+    name: Build All
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macos-15-intel, macos-15, windows-2022]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - name: Install dependencies (Linux only)
+        if: ${{ runner.os == 'Linux' && matrix.os != 'ubuntu-24.04' }}
+        run: |
+          sudo add-apt-repository -s "deb [arch=amd64] http://archive.ubuntu.com/ubuntu focal main universe"
+          sudo apt-get update && sudo apt-get install -y ocl-icd-libopencl1 opencl-headers ocl-icd-opencl-dev liboctave-dev gcc-7 g++-7 gcc-9 g++-9 upx-ucl pocl-opencl-icd
+      - name: Install dependencies (Linux only)
+        if: ${{ matrix.os == 'ubuntu-24.04' }}
+        run: |
+          sudo add-apt-repository -s "deb [arch=amd64] http://archive.ubuntu.com/ubuntu focal main universe"
+          sudo apt-get update && sudo apt-get install -y ocl-icd-libopencl1 opencl-headers ocl-icd-opencl-dev octave-dev gcc-7 g++-7 gcc-9 g++-9 upx-ucl pocl-opencl-icd
+      - name: Install dependencies (Linux only)
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 7
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 7
+      - name: Install dependencies (MacOS only)
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          brew install octave gcc@12
+          #brew install upx
+          if [[ "$RUNNER_ARCH" == "ARM64" ]]; then
+            echo 'OMPONLY=omp' >> $GITHUB_ENV
+          fi
+      - name: Link libgomp.a (MacOS only)
+        if: ${{ runner.os == 'macOS' && matrix.os != 'macos-15' }}
+        run: |
+          sudo ln -s /usr/local/lib/gcc/11/libgomp.a /usr/local/lib/libgomp.a
+      - name: Install dependencies (Windows only)
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          #choco install octave.portable --version=8.3.0
+          curl --retry 3 -kL https://ftpmirror.gnu.org/octave/windows/octave-10.3.0-w64.7z --output octave_10.3.7z
+          7z x octave_10.3.7z -ooctave -y
+          rm -rf octave_10.3.7z
+          echo "$PWD/octave/octave-10.3.0-w64/mingw64/bin" >> $GITHUB_PATH
+          choco install upx
+          choco install mingw --version=8.1.0
+          #echo 'C:\ProgramData\chocolatey\lib\octave.portable\tools\octave\mingw64\bin' >> $GITHUB_PATH
+          echo 'C:\ProgramData\Chocolatey\lib\mingw\tools\install\mingw64\bin\' >> $GITHUB_PATH
+          echo 'MW_MINGW64_LOC=/c/ProgramData/Chocolatey/lib/mingw/tools/install/mingw64/' >> $GITHUB_ENV
+      - name: Install OpenCL.dll and static libraries (Windows only)
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          mkdir opencl
+          cd opencl
+          curl https://mcx.space/wiki/upload/opencl.zip --output opencl.zip
+          unzip opencl.zip
+          cp bin/OpenCL.dll 'c:\Windows\System32'
+          cd ..
+          rm -rf opencl
+      - name: Install OpenCL (Windows only)
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          choco install opencl-intel-cpu-runtime --yes --no-progress
+      - name: Set up MATLAB (non MacOS-14)
+        if: ${{ matrix.os != 'macos-15' }}
+        uses: matlab-actions/setup-matlab@v1
+      - name: Set up MATLAB (MacOS-14)
+        if: ${{ matrix.os == 'macos-15' }}
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: R2023b
+      - name: Set the oldest macOS the binaries run on (MacOS only)
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          # clang otherwise records the runner's macOS (14 or 15) as the oldest the binaries and mex
+          # files start on; 11.0 is the first macOS on arm64, 10.15 the oldest the macos-15 Xcode
+          # targets for x86_64, as the wheels
+          if [ "$(uname -m)" = "arm64" ]; then T=11.0; else T=10.15; fi
+          echo "MACOSX_DEPLOYMENT_TARGET=$T" >> $GITHUB_ENV
+      - name: Update RCS keywords
+        run: |
+          printf '\n[filter "rcs-keywords"]\n\tclean  = .git_filters/rcs-keywords.clean\n\tsmudge = .git_filters/rcs-keywords.smudge %f\n' >> .git/config
+          rm -rf src/*.c
+          git checkout src/*.c
+      - name: Build mmclab for Octave
+        run: |
+          cd src
+          which gcc
+          gcc -v
+          mkoctfile --version
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 9
+            make oct MEXLINKOPT="-static-libgcc -static-libstdc++ -Wl,-Bstatic -lc -lm -lstdc++ -lpthread -Wl,-Bdynamic"
+            sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 7
+            ldd ../mmclab/mmc.mex
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            # link the mex without a path to liboctmex: -loctmex finds this empty stub, which is
+            # dead-stripped, so the mex API resolves in the liboctmex that the running Octave (any
+            # 10+ version, wherever installed) has loaded (mkoctfile links with -undefined dynamic_lookup)
+            mkdir -p octstub && echo "" | clang -dynamiclib -x c - -o "$PWD/octstub/liboctmex.dylib" -install_name @rpath/liboctmex-stub.dylib
+            # libgomp.a comes from OPENMPLIB of the Makefile; -fopenmp here linked it twice
+            make oct${{ env.OMPONLY }} CC=gcc-12 CXX=g++-12 MEXLINKOPT="-L$PWD/octstub -Wl,-dead_strip_dylibs" USEROCTOPT="CXXFLAGS='-pipe -Os -arch x86_64' DL_LD=g++ DL_LDFLAGS='-static-libgcc -static-libstdc++'"
+            otool -L ../mmclab/mmc.mex
+            if otool -L ../mmclab/mmc.mex | tail -n +2 | grep -E "liboctmex|/opt/homebrew|/usr/local"; then
+                echo "the mex links a library of the build machine"; exit 1
+            fi
+          else
+            PATH="$PWD/../octave/octave-10.3.0-w64/mingw64/bin":$PATH
+            which g++
+            g++ --version
+            make oct CC=gcc CXX=g++ LIBOPENCL='/c/Windows/System32/OpenCL.dll --verbose' LFLAGS='-static-libgcc -static-libstdc++'
+            objdump -p ../mmclab/mmc.mex | grep "DLL Name:"
+            make clean
+          fi
+          octave-cli --eval "fprintf(1,['OCTAVE_ARCH=' regexprep(computer('arch'), 'darwin[0-9.]+-', 'darwin-')])"
+          octave-cli --eval "fprintf(1,['OCTAVE_ARCH=' regexprep(computer('arch'), 'darwin[0-9.]+-', 'darwin-')])" >> $GITHUB_ENV
+      - name: Build mmclab for MATLAB
+        run: |
+          cd src
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            alias cc=gcc
+            make mex CC=gcc CXX=g++ LDFLAGS="-static lib/libzmat.a" EXTRALIB="-Lc:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/x86_64-w64-mingw32/lib -v"
+            objdump -p ../mmclab/mmc.mexw* | grep "DLL Name:"
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            which mex
+            if [[ "$RUNNER_ARCH" == "ARM64" ]]; then
+              perl -pi -e 's/maci64/maca64/g' mexopts_maci64_gcc.xml
+              perl -pi -e 's/MACI64/MACA64/g' mexopts_maci64_gcc.xml
+            fi
+            make mex${{ env.OMPONLY }} CC=gcc-12 CXX=g++-12 MEXLINKOPT="-static-libstdc++ -static-libgcc -fopenmp" EXTRALIB="-v -f mexopts_maci64_gcc.xml"
+            otool -L ../mmclab/mmc.mex*
+          else
+            make mex MEXLINKOPT="-static-libstdc++ -static-libgcc -Wl,-Bstatic -lstdc++ -lpthread -fopenmp -Wl,-Bdynamic" EXTRALIB="-v"
+            ldd ../mmclab/mmc.mex*
+          fi
+      - name: Build binary
+        run: |
+          cd src
+          make clean
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            make AR=c++ EXTRALIB="-static-libstdc++ -static-libgcc -Wl,-Bdynamic -lOpenCL -Wl,-Bstatic -lc -lm -lstdc++ -lpthread -fopenmp"
+            ldd ../bin/mmc
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            make ${{ env.OMPONLY }} CC=gcc-12 CXX=g++-12
+            otool -L ../bin/mmc
+          else
+            make CC=gcc CXX=g++ USERARFLAGS="-static-libstdc++ -static-libgcc -Wl,-Bstatic lib/libzmat.a -Lc:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/x86_64-w64-mingw32/lib"
+            ldd ../bin/mmc
+          fi
+      - name: Run binary tests
+        run: |
+          cd bin
+          ./mmc -L
+          ./mmc --bench
+          ./mmc --bench dmmc-cube60 -S 0 -D T -G -1
+          ./mmc --bench dmmc-cube60b -S 0 -D T -G -1
+          ./mmc --bench edgeimmc -S 0 -D T -G -1
+          ./mmc --bench nodeimmc -S 0 -D T -G -1
+          ./mmc --bench faceimmc -S 0 -D T -G -1
+      - name: Run functional and trajectory tests (Linux and MacOS)
+        if: ${{ runner.os != 'Windows' }}
+        run: |
+          python3 -m pip install numpy || python3 -m pip install --break-system-packages numpy
+          cd test
+          ./testmmc.sh
+      - name: Run built-in golden tests on the CPU (Linux and MacOS)
+        if: ${{ runner.os != 'Windows' }}
+        run: |
+          cd test
+          # test/builtin: self-contained example inputs, absorbed fraction against golden.txt
+          ./testbuiltin.sh -G -1
+      - name: Run trajectory tests on the POCL CPU OpenCL device (Ubuntu 24.04 only)
+        # the POCL 1.8/LLVM 11 in Ubuntu 22.04 fails to build the kernel
+        if: ${{ matrix.os == 'ubuntu-24.04' }}
+        run: |
+          sudo apt-get install -y pocl-opencl-icd
+          cd test
+          # POCL versions round single-precision math differently, so allow a few photons to fork
+          # at a reflect/escape decision; every step before the fork must still match
+          MMCOPT="-G 1 -c opencl" GOLDENTAG=_opencl MAXFORK=0.1 ./testtraj.sh -t 4000 -T 1
+      - name: Run the pmmc and mmclab unit tests on the CPU (Ubuntu 24.04 only)
+        if: ${{ matrix.os == 'ubuntu-24.04' }}
+        run: |
+          # scipy from pip: the numpy 2 installed above breaks the Ubuntu python3-scipy
+          sudo apt-get install -y python3-dev cmake
+          python3 -m pip install --break-system-packages scipy iso2mesh
+          git clone --depth 1 https://github.com/fangq/iso2mesh.git ../iso2mesh
+          mkdir -p src/pybuild && cd src/pybuild
+          cmake .. -DBUILD_PYTHON=ON -DBUILD_MEX=OFF && make -j4 _pmmc
+          cd ../../pmmc
+          PYTHONPATH=$PWD/../src/pybuild:$PWD python3 -m unittest discover -s test -v
+          cd ../mmclab/test
+          octave-cli --eval "addpath(genpath('$GITHUB_WORKSPACE/../iso2mesh')); test_mmclab"
+      - name: Rebuild Linux release binaries for glibc 2.17 (manylinux2014)
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        run: |
+          # built on this runner, every binary and mex file needs GLIBC_2.34 and
+          # does not start on Ubuntu 20.04 or older; the manylinux2014 (CentOS 7)
+          # image links them against glibc 2.17 and checks that they do
+          docker build --build-arg WITH_CUDA=0 -t mcx-linux-release-builder .github/linux_release_builder
+          MLROOT=$(dirname "$(dirname "$(readlink -f "$(which matlab)")")")
+          OCTINC=$(dirname "$(dirname "$(find /usr/include -path '*/octave/mex.h' | head -1)")")
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/src" \
+              -v "$MLROOT:$MLROOT:ro" -e MATLAB_ROOT="$MLROOT" \
+              -v "$OCTINC:/octinc:ro" -e OCTAVE_INCDIR=/octinc \
+              mcx-linux-release-builder bash .github/linux_release_builder/build_mmc.sh
+      - name: Check the oldest macOS the binaries need (MacOS only)
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          fail=0
+          for f in bin/mmc mmclab/mmc.mex mmclab/mmc.mexmaci64 mmclab/mmc.mexmaca64; do
+            [ -f "$f" ] || continue
+            # a MATLAB mex gets the target MATLAB's mex sets, and loads only in a MATLAB that needs that macOS
+            case "$f" in *.mexmaci64|*.mexmaca64) echo "$f needs macOS $(otool -l "$f" | awk '$1=="minos"{print $2; exit}') (MATLAB's own)"; continue ;; esac
+            minos=$(otool -l "$f" | awk '/LC_BUILD_VERSION/{b=1} b && $1=="minos"{print $2; exit} /LC_VERSION_MIN_MACOSX/{v=1} v && $1=="version"{print $2; exit}')
+            echo "$f needs macOS $minos"
+            if [ -z "$minos" ] || [ "$(printf '%s\n%s\n' "$minos" "$MACOSX_DEPLOYMENT_TARGET" | sort -V | tail -1)" != "$MACOSX_DEPLOYMENT_TARGET" ]; then
+              echo "  newer than $MACOSX_DEPLOYMENT_TARGET: it would not start on older macOS"; fail=1
+            fi
+          done
+          exit $fail
+      - name: Create package folder
+        run: |
+          mkdir packages
+          mkdir -p mmclab/octave/${{ env.OCTAVE_ARCH }}
+      - name: Create release tag
+        run: perl -e "print 'RELEASE_TAG='. lc('${{ runner.os }}-${{ runner.arch }}-github-latest')" >> $GITHUB_ENV
+      - name: Zip mmclab
+        run: |
+          # strip, so the packages are as small as they can be (not on macOS);
+          # no upx on mex files: a packed mex aborts MATLAB/Octave when it raises an error (C++ exceptions can not unwind)
+          if [[ "$RUNNER_OS" != "macOS" ]]; then
+            strip --strip-unneeded mmclab/mmc.mex* || true
+          fi
+          mv mmclab/mmc.mex mmclab/octave/${{ env.OCTAVE_ARCH }}
+          # the helper functions of matlab/ as mmclab's private folder: mmclab.m calls mmcraytrace,
+          # mmcsrcdomain and mmcaddsrc, so the package works without matlab/ on the path
+          rm -rf mmclab/private && cp -a matlab mmclab/private
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp "$PWD/octave/octave-10.3.0-w64/mingw64/bin/libgomp-1.dll" mmclab/octave/${{ env.OCTAVE_ARCH }}
+            cp "$PWD/octave/octave-10.3.0-w64/mingw64/bin/libwinpthread-1.dll" mmclab/octave/${{ env.OCTAVE_ARCH }}
+            7z a -tzip packages/mmclab-${{ env.RELEASE_TAG }}.zip mmclab
+          else
+            zip -FSr --symlink packages/mmclab-${{ env.RELEASE_TAG }}.zip mmclab
+          fi
+      - name: Upload mmclab package
+        if: ${{ matrix.os == 'ubuntu-22.04' || matrix.os == 'macos-15-intel' || matrix.os == 'macos-15' || matrix.os == 'windows-2022' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-mmclab-packages-${{ env.RELEASE_TAG }}
+          path: packages/mmclab-${{ env.RELEASE_TAG }}.zip
+      - name: Prepare mmc package
+        run: |
+          rm -rf .git mmclab webmmc commons src .git_filters .gitattributes .github .travis.yml win32 deploy
+          # the Octave and OpenCL downloads of the Windows job (2.6 GB unpacked)
+          rm -rf octave opencl
+      - name: Zip mmc
+        run: |
+          cd .. && pwd
+          if [[ "$RUNNER_OS" != "macOS" ]]; then
+            strip mmc/bin/* || true
+            upx -9 mmc/bin/* || true
+          fi
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            rm -rf "$PWD/octave"
+            7z a -tzip mmc/packages/mmc-${{ env.RELEASE_TAG }}.zip mmc -xr!mmc/packages
+          else
+            zip -FSr --symlink mmc/packages/mmc-${{ env.RELEASE_TAG }}.zip mmc -x 'mmc/packages*'
+          fi
+      - name: Upload mmc package
+        if: ${{ matrix.os == 'ubuntu-22.04' || matrix.os == 'macos-15-intel' || matrix.os == 'macos-15' || matrix.os == 'windows-2022' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-mmc-packages-${{ env.RELEASE_TAG }}
+          path: packages/mmc-${{ env.RELEASE_TAG }}.zip
+
+  build_mmc_trinity:
+    name: Build+Upload mmc-trinity (CUDA and OptiX), mmclab-trinity and pmmc-trinity
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+      - name: Update RCS keywords
+        run: |
+          printf '\n[filter "rcs-keywords"]\n\tclean  = .git_filters/rcs-keywords.clean\n\tsmudge = .git_filters/rcs-keywords.smudge %f\n' >> .git/config
+          rm -rf src/*.c
+          git checkout src/*.c
+      - name: Fetch the OptiX headers
+        run: |
+          git clone --depth 1 --branch v7.5.0 https://github.com/NVIDIA/optix-dev.git ../optix
+      - name: Install Octave (Linux only)
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y liboctave-dev upx-ucl
+      - name: Install Octave 10 (Windows only)
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          curl --retry 3 -kL https://ftpmirror.gnu.org/octave/windows/octave-10.3.0-w64.7z --output octave_10.3.7z
+          7z x octave_10.3.7z -o../octave -y > /dev/null
+          rm -f octave_10.3.7z
+          echo "OCTAVE_HOME=$(cd ../octave/octave-10.3.0-w64/mingw64 && pwd)" >> $GITHUB_ENV
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v1
+      - name: Set up Python (Windows only)
+        if: ${{ runner.os == 'Windows' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: |
+            3.8
+            3.9
+            3.10
+            3.11
+            3.12
+            3.13
+      - name: Set up MSVC (Windows only)
+        if: ${{ runner.os == 'Windows' }}
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: '14.29'
+      - name: Build mmc-trinity (Linux)
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          # in the manylinux2014 image, as the other Linux release builds: GLIBC_2.17 at most
+          docker build --build-arg WITH_CUDA=0 -t mcx-linux-release-builder .github/linux_release_builder
+          MLROOT=$(dirname "$(dirname "$(readlink -f "$(which matlab)")")")
+          OCTINC=$(dirname "$(dirname "$(find /usr/include -path '*/octave/mex.h' | head -1)")")
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/src" -v "$(cd ../optix && pwd):/optix:ro" \
+              -v "$MLROOT:$MLROOT:ro" -e MATLAB_ROOT="$MLROOT" \
+              -v "$OCTINC:/octinc:ro" -e OCTAVE_INCDIR=/octinc \
+              mcx-linux-release-builder bash .github/linux_release_builder/build_mmc_trinity.sh
+          echo "OCTAVE_ARCH=$(octave-cli --eval "fprintf(1,computer('arch'))")" >> $GITHUB_ENV
+      - name: Build mmc-trinity (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          MLROOT=$(dirname "$(dirname "$(readlink -f "$(which matlab)")")")
+          PYTHONS=$(ls -d /c/hostedtoolcache/windows/Python/3.*/x64/python.exe | sort -V | tr '\n' ' ')
+          echo "Pythons: $PYTHONS"
+          OPTIXHOME="$(cd ../optix && pwd)" MATLAB_ROOT="$MLROOT" PYTHONS="$PYTHONS" \
+              bash .github/windows_release_builder/build_mmc_trinity.sh
+          # no GPU here: run the CPU backend (the driver and OpenCL DLLs are delay-loaded)
+          bin/mmc.exe --bench dmmc-cube60 -n 1e5 -c sse -D T -s trinitytest > trinitytest.log
+          grep "absorbed" trinitytest.log
+          rm -f trinitytest*
+          echo "OCTAVE_ARCH=$("$OCTAVE_HOME/bin/octave-cli.exe" --eval "fprintf(1,computer('arch'))")" >> $GITHUB_ENV
+      - name: Create release tag
+        run: perl -e "print 'RELEASE_TAG='. lc('${{ runner.os }}-${{ runner.arch }}-github-latest')" >> $GITHUB_ENV
+      - name: Zip mmc-trinity, mmclab-trinity and pmmc-trinity
+        run: |
+          mkdir -p packages
+          zipit() {   # zipit <folder> <zip>
+            if [[ "$RUNNER_OS" == "Windows" ]]; then
+              (cd "$(dirname "$1")" && 7z a -tzip "$2" "$(basename "$1")")
+            else
+              (cd "$(dirname "$1")" && zip -FSr --symlink "$2" "$(basename "$1")")
+            fi
+          }
+          PKG=$(mktemp -d)
+          # mmc-trinity: the standalone mmc package, with this binary; strip (Linux; MSVC
+          # keeps no symbols in the .exe), then compress
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            choco install upx --no-progress
+            upx -9 bin/mmc.exe
+          else
+            strip bin/mmc
+            upx -9 bin/mmc
+          fi
+          mkdir -p "$PKG/mmc-trinity"
+          cp -a bin examples matlab README.md README.txt LICENSE.txt AUTHORS.txt ChangeLog.txt "$PKG/mmc-trinity"/ 2>/dev/null || true
+          cat > "$PKG/mmc-trinity/README_TRINITY.txt" << 'EOF'
+          This build of MMC (mmc-trinity) adds the NVIDIA CUDA (-c cuda) and OptiX
+          (-c optix) backends to the CPU (-c sse) and OpenCL (-c opencl) backends of
+          the standard mmc package.  The CUDA code is compiled for every GPU from
+          Maxwell (sm_52) to Ampere (sm_86), and as PTX for newer ones.
+
+          It needs an NVIDIA GPU with driver R515 (Linux) or R516 (Windows) or
+          newer.  OptiX ray-traces with the RT cores of RTX GPUs; it runs the
+          dual-grid method (-M g); the other backends run every method.
+
+            mmc --bench dmmc-cube60 -c optix       # the OptiX backend
+            mmc --bench dmmc-cube60 -c cuda        # the CUDA backend
+            mmc -L                                 # list the GPUs
+
+          mmclab-trinity (MATLAB/Octave: cfg.compute='cuda' or 'optix') and
+          pmmc-trinity (Python: cfg['compute']='cuda' or 'optix') are separate
+          packages.  See README.txt for everything else.
+          EOF
+          zipit "$PKG/mmc-trinity" "$GITHUB_WORKSPACE/packages/mmc-trinity-${{ env.RELEASE_TAG }}.zip"
+          # mmclab-trinity: the mmclab folder with the CUDA/OptiX mex files, a drop-in for mmclab
+          rm -rf "$PKG/mmclab" && cp -a mmclab "$PKG/mmclab"
+          rm -rf "$PKG/mmclab/test" "$PKG/mmclab/mmc.mex"
+          rm -rf "$PKG/mmclab/private" && cp -a matlab "$PKG/mmclab/private"
+          mkdir -p "$PKG/mmclab/octave/${{ env.OCTAVE_ARCH }}"
+          [ -f mmclab/mmc.mex ] && cp mmclab/mmc.mex "$PKG/mmclab/octave/${{ env.OCTAVE_ARCH }}/"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp bin/vcomp140.dll bin/vcruntime140.dll "$PKG/mmclab/"
+            cp bin/vcomp140.dll bin/vcruntime140.dll "$PKG/mmclab/octave/${{ env.OCTAVE_ARCH }}/"
+          fi
+          ls -lR "$PKG/mmclab" | grep -E "mmc\.mex|\.dll"
+          zipit "$PKG/mmclab" "$GITHUB_WORKSPACE/packages/mmclab-trinity-${{ env.RELEASE_TAG }}.zip"
+          # pmmc-trinity: the pmmc wheels with _rtmmc
+          mkdir -p "$PKG/pmmc-trinity"
+          cp pmmc/dist/*.whl "$PKG/pmmc-trinity/"
+          cat > "$PKG/pmmc-trinity/README.txt" << 'EOF'
+          pmmc-trinity: pmmc wheels with _rtmmc, the CUDA and OptiX backends of mmc
+          (cfg['compute']='cuda' or 'optix', also in pmmc.mmclab(cfg, 'cuda')),
+          next to its CPU and OpenCL backends.  Install the wheel of your Python
+          version in place of the pmmc from PyPI:
+
+            pip install --force-reinstall pmmc-<version>-cp3XX-*.whl
+
+          It needs an NVIDIA GPU with driver R515 (Linux) or R516 (Windows) or newer.
+          EOF
+          ls -l "$PKG/pmmc-trinity"
+          zipit "$PKG/pmmc-trinity" "$GITHUB_WORKSPACE/packages/pmmc-trinity-${{ env.RELEASE_TAG }}.zip"
+          ls -l packages
+      - name: Upload mmc-trinity packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-mmc-trinity-packages-${{ env.RELEASE_TAG }}
+          path: packages/*-trinity-${{ env.RELEASE_TAG }}.zip
+
+  upload_package:
+    name: Upload Packages
+    needs: [build_all, build_mmc_trinity]
+    runs-on: ubuntu-22.04
+    if: ${{ github.repository_owner == 'fangq' && github.actor == 'fangq' && github.event_name != 'pull_request'}}
+    steps:
+      - name: Download mmclab
+        uses: actions/download-artifact@v4
+        with:
+          pattern: all-mmc*-packages-*
+          merge-multiple: true
+          path: packages
+      - name: Create all-in-one octave mmclab
+        run: |
+          cd packages
+          # not the mmclab-trinity packages (the CUDA/OptiX mex files), which also hold an mmclab folder
+          for z in mmclab-*.zip; do
+            [[ "$z" == *trinity* ]] || unzip -n "$z"
+          done
+          tree .
+          zip -FSr --symlink mmclab-allinone-github-latest.zip mmclab
+          rm -rf mmclab
+      - name: Display structure of downloaded files
+        run: ls -R packages
+      - name: Copy package to server
+        if: ${{ github.repository_owner == 'fangq' && github.actor == 'fangq' && github.event_name != 'pull_request'}}
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.MCX_SERVER }}
+          username: ${{ secrets.MCX_SERVER_USER }}
+          ssh_private_key: ${{ secrets.MCX_SERVER_SSH_KEY }}
+          local_path: "packages/*"
+          remote_path: ${{ secrets.MCX_CI_PATH }}

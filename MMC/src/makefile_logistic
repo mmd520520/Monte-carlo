@@ -1,0 +1,8 @@
+ROOTDIR = ..
+BINARY=mmc_log
+
+FILES=logistic_rand mmc_mesh mmc_raytrace mmc_utils mmc_tictoc mmc
+USERCCFLAGS=-DMMC_LOGISTIC -DUSE_OS_TIMER
+
+include $(ROOTDIR)/commons/Makefile_common.mk
+

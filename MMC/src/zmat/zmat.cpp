@@ -1,0 +1,378 @@
+/***************************************************************************//**
+**  \mainpage ZMat - A portable C-library and MATLAB/Octave toolbox for inline data compression
+**
+**  \author Qianqian Fang <q.fang at neu.edu>
+**  \copyright Qianqian Fang, 2019,2020,2022
+**
+**  ZMat provides an easy-to-use interface for stream compression and decompression.
+**
+**  It can be compiled as a MATLAB/Octave mex function (zipmat.mex/zmat.m) and compresses
+**  arrays and strings in MATLAB/Octave. It can also be compiled as a lightweight
+**  C-library (libzmat.a/libzmat.so) that can be called in C/C++/FORTRAN etc to
+**  provide stream-level compression and decompression.
+**
+**  Currently, zmat/libzmat supports 6 different compression algorthms, including
+**     - zlib and gzip : the most widely used algorithm algorithms for .zip and .gz files
+**     - lzma and lzip : high compression ratio LZMA based algorithms for .lzma and .lzip files
+**     - lz4 and lz4hc : real-time compression based on LZ4 and LZ4HC algorithms
+**     - base64        : base64 encoding and decoding
+**
+**  ZMat is part of the NeuroJSON project (https://neurojson.org)
+**  More information can be found at https://github.com/NeuroJSON/zmat
+**
+**  Depencency: ZLib library: https://www.zlib.net/
+**  author: (C) 1995-2017 Jean-loup Gailly and Mark Adler
+**
+**  Depencency: LZ4 library: https://lz4.github.io/lz4/
+**  author: (C) 2011-2019, Yann Collet,
+**
+**  Depencency: Original LZMA library
+**  author: Igor Pavlov
+**
+**  Depencency: Eazylzma: https://github.com/lloyd/easylzma
+**  author: Lloyd Hilaiel (lloyd)
+**
+**  Depencency: base64_encode()/base64_decode()
+**  \copyright 2005-2011, Jouni Malinen <j@w1.fi>
+**
+**  \section slicense License
+**          GPL v3, see LICENSE.txt for details
+*******************************************************************************/
+
+/***************************************************************************//**
+\file    zmat.cpp
+
+@brief   mex function for ZMAT
+*******************************************************************************/
+
+#include <stdio.h>
+#include <string.h>
+#include <exception>
+#include <ctype.h>
+#include <assert.h>
+
+#include "mex.h"
+#include "zmatlib.h"
+#include "zlib.h"
+
+void zmat_usage();
+
+const char*  metadata[] = {"type", "size", "byte", "method", "status", "level", "offsets"};
+
+/** @brief Mex function for the zmat - an interface to compress/decompress binary data
+ *  This is the master function to interface for zipping and unzipping a char/int8 buffer
+ */
+
+void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
+    TZipMethod zipid = zmZlib;
+    const char* zipmethods[] = {
+        "zlib",
+        "gzip",
+        "base64",
+#if !defined(NO_LZMA)
+        "lzip",
+        "lzma",
+#endif
+#if defined(ZMAT_USE_LZMA_SDK)
+        "xz",
+#endif
+#if !defined(NO_LZ4)
+        "lz4",
+        "lz4hc",
+#endif
+#if !defined(NO_ZSTD)
+        "zstd",
+#endif
+#if !defined(NO_BLOSC2)
+        "blosc2blosclz",
+        "blosc2lz4",
+        "blosc2lz4hc",
+        "blosc2zlib",
+        "blosc2zstd",
+#endif
+        ""
+    };
+
+    const TZipMethod  zipmethodid[] = {
+        zmZlib,
+        zmGzip,
+        zmBase64,
+#if !defined(NO_LZMA)
+        zmLzip,
+        zmLzma,
+#endif
+#if defined(ZMAT_USE_LZMA_SDK)
+        zmXz,
+#endif
+#if !defined(NO_LZ4)
+        zmLz4,
+        zmLz4hc,
+#endif
+#if !defined(NO_ZSTD)
+        zmZstd,
+#endif
+#if !defined(NO_BLOSC2)
+        zmBlosc2Blosclz,
+        zmBlosc2Lz4,
+        zmBlosc2Lz4hc,
+        zmBlosc2Zlib,
+        zmBlosc2Zstd,
+#endif
+        zmUnknown
+    };
+
+    int use4bytedim = 0;
+
+    /**
+     * The TZMatFlags union data structure is defined in zmatlib.h
+     * it allows users to set advanced parameters to be used for
+     * blosc2 meta-compressor, including number of threads,
+     * byte-shuffle and element byte size; the iscompress element is
+     * used to pass on to zmat_run
+     *
+     * union TZMatFlags {
+     *     int iscompress;      // combined flag used to pass on to zmat_run
+     *     struct settings {    // unpacked flags
+     *         char clevel;     // compression level, 0: decompression, 1: use default level; negative: set compression level (-1 to -19)
+     *         char nthread;    // number of compression/decompression threads
+     *         char shuffle;    // byte shuffle length
+     *         char typesize;   // for ND-array, the byte-size for each array element
+     *     } param;
+     * };
+     */
+
+    union TZMatFlags flags = {0};
+    int methidx = 0; /* index into zipmethods[] — used to store info.method correctly */
+
+    /**
+     * If no input is given for this function, it prints help information and return.
+     */
+    if (nrhs == 0) {
+        zmat_usage();
+        return;
+    }
+
+    /**
+     * Octave and MATLAB had changed mwSize from 4 byte to size_t (8 byte on 64bit machines)
+     * in Octave 5/R2016. When running a mex/oct file compiled on newer libraries over an older
+     * MATLAB/Octave versions, this can cause empyt output. The flag use4bytedim defined
+     * in the below test is 1 when this situation happens, and adapt output accordingly.
+     */
+    if (sizeof(mwSize) == 8) {
+        mwSize dims[2] = {0, 0};
+        unsigned int* intdims = (unsigned int*)dims;
+        intdims[0] = 2;
+        intdims[1] = 3;
+        mxArray* tmp = mxCreateNumericArray(2, dims, mxUINT8_CLASS, mxREAL);
+        use4bytedim = (mxGetNumberOfElements(tmp) == 6);
+        mxDestroyArray(tmp);
+    }
+
+    flags.param.nthread = 4;
+    flags.param.shuffle = 1;
+    flags.param.typesize = 4;
+
+    if (nrhs >= 2) {
+        double* val = mxGetPr(prhs[1]);
+        flags.param.clevel = (int)val[0];
+    }
+
+    if (nrhs >= 3) {
+        int len = mxGetNumberOfElements(prhs[2]);
+
+        if (!mxIsChar(prhs[2]) || len == 0) {
+            mexErrMsgTxt("the 'method' field must be a non-empty string");
+        }
+
+        if ((methidx = zmat_keylookup((char*)mxArrayToString(prhs[2]), zipmethods)) < 0) {
+            mexErrMsgTxt("the specified compression method is not supported");
+        }
+
+        zipid = zipmethodid[methidx];
+    }
+
+    if (nrhs >= 4) {
+        double* val = mxGetPr(prhs[3]);
+        flags.param.nthread = val[0];
+    }
+
+    if (nrhs >= 5) {
+        double* val = mxGetPr(prhs[4]);
+        flags.param.shuffle = val[0];
+    }
+
+    if (nrhs >= 6) {
+        double* val = mxGetPr(prhs[5]);
+        flags.param.typesize = val[0];
+    }
+
+    try {
+        if (mxIsChar(prhs[0]) || (mxIsNumeric(prhs[0]) && !mxIsComplex(prhs[0])) || mxIsLogical(prhs[0])) {
+            int ret = -1;
+            mwSize inputsize = mxGetNumberOfElements(prhs[0]) * mxGetElementSize(prhs[0]);
+            mwSize buflen[2] = {0};
+            unsigned char* outputbuf = NULL;
+            size_t outputsize = 0;
+            unsigned char* inputstr = (mxIsChar(prhs[0]) ? (unsigned char*)mxArrayToString(prhs[0]) : (unsigned char*)mxGetData(prhs[0]));
+            int errcode = 0;
+
+            // Block index for threaded zlib/gzip: filled in on compression,
+            // consumed on decompression when the caller passes back the
+            // info.offsets it received earlier. Any other codec ignores it.
+            size_t* zoffsets = NULL;
+            size_t noffsets = 0;
+            double* inoffsets = NULL;
+
+            if (nrhs >= 7 && !mxIsEmpty(prhs[6]) && mxIsNumeric(prhs[6]) && !flags.param.clevel) {
+                size_t cnt = mxGetNumberOfElements(prhs[6]);
+                inoffsets = mxGetPr(prhs[6]);
+
+                if (inoffsets && cnt >= 4 && !(cnt & 1)) {
+                    zoffsets = (size_t*)malloc(cnt * sizeof(size_t));
+
+                    if (zoffsets) {
+                        for (size_t k = 0; k < cnt; k++) {
+                            zoffsets[k] = (size_t)inoffsets[k];
+                        }
+
+                        noffsets = cnt;
+                    }
+                }
+            }
+
+            // if input buffer is not empty, run main function zmat_run_indexed
+            if (inputsize > 0) {
+                errcode = zmat_run_indexed(inputsize, inputstr, &outputsize, &outputbuf, zipid, &ret,
+                                           flags.iscompress, &zoffsets, &noffsets);
+            }
+
+            // test error code
+            if (errcode < 0) {
+                if (outputbuf) {
+                    free(outputbuf);
+                }
+
+                outputbuf = NULL;
+                outputsize = 0;
+            }
+
+            buflen[0] = 1;
+            buflen[1] = outputsize;
+
+            // if running on octave 4/matlab R2015 or older, dimensions are stored as 4-byte integers, determine this at runtime
+            if (use4bytedim) {
+                unsigned int intdims[4] = {0};
+                intdims[0] = 1;
+                intdims[1] = (unsigned int)outputsize;
+                plhs[0] = mxCreateNumericArray(2, (mwSize*)intdims, mxUINT8_CLASS, mxREAL);
+            } else {
+                plhs[0] = mxCreateNumericArray(2, buflen, mxUINT8_CLASS, mxREAL);
+            }
+
+            // return the compressed/decompressed buffer to plhs[0]
+            if (outputbuf) {
+                memcpy((unsigned char*)mxGetPr(plhs[0]), outputbuf, buflen[1]);
+                free(outputbuf);
+            }
+
+            // return info struct
+            if (nlhs > 1) {
+                mwSize inputdim[2] = {1, 0}, *dims = (mwSize*)mxGetDimensions(prhs[0]);
+                unsigned int* int64inputdim = NULL;
+                plhs[1] = mxCreateStructMatrix(1, 1, 7, metadata);
+                mxArray* val = mxCreateString(mxGetClassName(prhs[0]));
+                mxSetFieldByNumber(plhs[1], 0, 0, val);
+
+                inputdim[1] = mxGetNumberOfDimensions(prhs[0]);
+                int64inputdim = (unsigned int*)malloc(inputdim[1] * sizeof(unsigned int));
+
+                if (use4bytedim) {
+                    unsigned int intinputdim[4] = {0};
+                    unsigned int* intdims = (unsigned int*)(mxGetDimensions(prhs[0]));
+                    intinputdim[0] = 1;
+                    intinputdim[1] = (unsigned int)inputdim[1];
+                    val = mxCreateNumericArray(2, (mwSize*)intinputdim, mxUINT32_CLASS, mxREAL);
+
+                    for (unsigned int i = 0; i < intinputdim[1]; i++) {
+                        int64inputdim[i] = intdims[i];
+                    }
+
+                    memcpy(mxGetPr(val), int64inputdim, intinputdim[1]*sizeof(unsigned int));
+                } else {
+                    if (sizeof(mwSize) == 8) {
+                        val = mxCreateNumericArray(2, inputdim, mxUINT64_CLASS, mxREAL);
+                        memcpy(mxGetPr(val), dims, inputdim[1]*sizeof(mwSize));
+                    } else {
+                        val = mxCreateNumericArray(2, inputdim, mxUINT32_CLASS, mxREAL);
+
+                        for (unsigned int i = 0; i < inputdim[1]; i++) {
+                            int64inputdim[i] = dims[i];
+                        }
+
+                        memcpy(mxGetPr(val), int64inputdim, inputdim[1]*sizeof(unsigned int));
+                    }
+                }
+
+                mxSetFieldByNumber(plhs[1], 0, 1, val);
+
+                val = mxCreateDoubleMatrix(1, 1, mxREAL);
+                *mxGetPr(val) = mxGetElementSize(prhs[0]);
+                mxSetFieldByNumber(plhs[1], 0, 2, val);
+
+                val = mxCreateString(zipmethods[methidx]);
+                mxSetFieldByNumber(plhs[1], 0, 3, val);
+
+                val = mxCreateDoubleMatrix(1, 1, mxREAL);
+                *mxGetPr(val) = ret;
+                mxSetFieldByNumber(plhs[1], 0, 4, val);
+
+                val = mxCreateDoubleMatrix(1, 1, mxREAL);
+                *mxGetPr(val) = flags.param.clevel;
+                mxSetFieldByNumber(plhs[1], 0, 5, val);
+
+                // the block index, as a 2-by-nblock+1 matrix of
+                // [compressed; uncompressed] byte offsets; empty when the
+                // codec or thread count did not produce one
+                if (zoffsets && noffsets >= 4) {
+                    val = mxCreateDoubleMatrix(2, noffsets / 2, mxREAL);
+                    double* op = mxGetPr(val);
+
+                    for (size_t k = 0; k < noffsets; k++) {
+                        op[k] = (double)zoffsets[k];
+                    }
+                } else {
+                    val = mxCreateDoubleMatrix(0, 0, mxREAL);
+                }
+
+                mxSetFieldByNumber(plhs[1], 0, 6, val);
+            }
+
+            if (zoffsets) {
+                free(zoffsets);
+                zoffsets = NULL;
+            }
+
+            if (errcode < 0) {
+                mexWarnMsgTxt(zmat_error(-errcode));
+            }
+        } else {
+            mexErrMsgTxt("the input must be a char, non-complex numerical or logical array");
+        }
+    } catch (const char* err) {
+        mexPrintf("Error: %s\n", err);
+    } catch (const std::exception& err) {
+        mexPrintf("C++ Error: %s\n", err.what());
+    } catch (...) {
+        mexPrintf("Unknown Exception\n");
+    }
+
+    return;
+}
+
+/**
+ * @brief Print a brief help information if nothing is provided
+ */
+
+void zmat_usage() {
+    mexPrintf("ZMat (v1.2.preview)\nUsage:\n\t[output,info]=zmat(input,iscompress,method);\n\nPlease run 'help zmat' for more details.\n");
+}
