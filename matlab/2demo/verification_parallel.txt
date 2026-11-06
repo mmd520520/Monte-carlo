@@ -1,0 +1,7 @@
+Parallel + oblique version verification:
+Tissue.m : SHA256 1762560118D132DF72C1C4E101502227670B78C88636A09C407C359D1F888989 : UNCHANGED
+Tissue _optical_parameters.m : SHA256 085E4088C836002C6FD98D9D4FF02F12C4FEE3CCD2D01827D481BFF0F115602D : UNCHANGED
+Light_T.m : SHA256 BF46506CB9FF572FFC96AB99B50B32CFA015A6703145994B1C4F5A80510C7C06 : UNCHANGED
+MATLAB R2023a mlint: no diagnostics for new/changed code.
+Runtime NOT verified: MATLAB -batch crashed at startup before executing user code.
+Backup creation failed before writeback; reference_serial_version is the previously delivered serial version only.

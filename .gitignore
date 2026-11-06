@@ -1,0 +1,4 @@
+
+# MATLAB generated results
+matlab/**/*mc_results.mat
+matlab/**/*.asv
