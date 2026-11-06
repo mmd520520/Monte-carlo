@@ -1,0 +1,2 @@
+@echo off
+mcxcl --session dd1 --input C:\Users\admin\Desktop\文件\20261027-星期二-文件1\MCXStudio-win64-v2025.10\MCXStudio\MCXOutput\mcxclsessions\dd1\dd1.json --root C:\Users\admin\Desktop\文件\20261027-星期二-文件1\MCXStudio-win64-v2025.10\MCXStudio\MCXOutput\mcxclsessions\dd1 --outputformat nii --gpu 10000000 --autopilot 1 --photon 100000000 --normalize 1 --save2pt 1 --reflect 1 --savedet 1 --unitinmm 0.01 --seed 1648335518 --saveseed 0 --atomic 1 --specular 0 --array 0 --dumpmask 0 --repeat 1 --savedetflag DP --maxdetphoton 10000000
