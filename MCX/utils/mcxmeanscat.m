@@ -1,0 +1,22 @@
+function avgnscat = mcxmeanscat(detp, prop)
+%
+% avgnscat=mcxmeanscat(detp,prop)
+%
+% Calculate the average scattering event counts for each tissue type for a given source-detector pair
+%
+% author: Qianqian Fang (q.fang <at> neu.edu)
+%
+% input:
+%     detp: the 2nd output from mcxlab. detp must be a struct with an nscat subfield
+%     prop: optical property list, as defined in the cfg.prop field of mcxlab's input
+%
+% output:
+%     avgnscat: the average scattering event count for each tissue type
+%
+% this file is copied from Mesh-based Monte Carlo (MMC)
+%
+% License: GPLv3, see https://mcx.space/ for details
+%
+
+detw = mcxdetweight(detp, prop);
+avgnscat = sum(double(detp.nscat) .* repmat(detw(:), 1, size(detp.nscat, 2)), 1) / sum(detw(:));

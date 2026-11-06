@@ -1,0 +1,550 @@
+name: Build+Upload MCX and Octave/MATLAB mex
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build_all:
+    name: Build All
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15-intel, windows-2022]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - name: Install dependencies (Linux only)
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y liboctave-dev lazarus libxmu-dev gcc-9 g++-9 upx-ucl
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 9
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 9
+      - name: Cache Xcode10 tarball (macOS)
+        if: ${{ runner.os == 'macOS' }}
+        id: cache-xcode10
+        uses: actions/cache@v4
+        with:
+          path: /tmp/Xcode10.app.tar.gz
+          key: xcode10-app-tarball-v1
+      - name: Download Xcode10 (macOS, if not cached)
+        if: ${{ runner.os == 'macOS' && steps.cache-xcode10.outputs.cache-hit != 'true' }}
+        run: |
+          curl -o /tmp/Xcode10.app.tar.gz --insecure https://mcx.space/dev/ci/Xcode10.app.tar.gz
+      - name: Install dependencies (MacOS only)
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          set -ex
+
+          brew install libomp
+          tar zxf /tmp/Xcode10.app.tar.gz
+          sudo xcode-select --print-path
+          sudo xcode-select -s $PWD/Xcode.app/Contents/Developer/
+          echo "$PWD/Xcode.app/Contents/Developer/usr/bin" >> $GITHUB_PATH
+          echo "$PWD/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/" >> $GITHUB_PATH
+          echo "SDKROOT=$PWD/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" >> $GITHUB_ENV
+          #conda config --add channels conda-forge
+          #conda config --set channel_priority strict
+          #conda install octave
+          #curl -L -o Octave-9.2-Intel.dmg --insecure https://github.com/octave-app/octave-app/releases/download/v9.2/Octave-9.2-Intel.dmg
+          #xattr -c Octave-*.dmg
+          #sudo hdiutil attach Octave-9.2-Intel.dmg
+          #sudo cp -a /Volumes/Octave\ 9.2/Octave-9.2.app /Applications
+          #echo "/Applications/Octave-9.2.app/Contents/Resources/usr/Cellar/octave-octapp@9.2.0/9.2.0/bin" >> $GITHUB_PATH
+          brew link --force libomp
+      - name: Cache Lazarus (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        id: cache-lazarus
+        uses: actions/cache@v4
+        with:
+          path: 'C:\lazarus'
+          key: lazarus-2.2.6-${{ matrix.os }}-v1
+      - name: Cache UPX (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        id: cache-upx
+        uses: actions/cache@v4
+        with:
+          path: upx
+          key: upx-4.0.2-${{ matrix.os }}-v1
+      - name: Install dependencies (Windows only)
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          ## curl --retry 3 -kL http://cdimage.debian.org/mirror/gnu.org/gnu/octave/windows/octave-5.2.0_1-w64-64.7z --output octave_5.2.7z
+          ## 7z x octave_5.2.7z -ooctave -y
+          ## rm -rf octave_5.2.7z
+          #choco install octave.portable --version=5.2.0
+          if [[ "${{ steps.cache-lazarus.outputs.cache-hit }}" != "true" ]]; then
+            choco install lazarus --version=2.2.6 --ignore-checksums
+          fi
+          if [[ "${{ steps.cache-upx.outputs.cache-hit }}" != "true" ]]; then
+            curl --retry 3 -kL https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-win64.zip --output upx.zip
+            7z x upx.zip -oupx -y
+            rm -f upx.zip
+          fi
+          ## echo "$PWD/octave/octave-5.2.0-w64-64/mingw64/bin" >> $GITHUB_PATH
+          echo 'C:\lazarus' >> $GITHUB_PATH
+          echo 'C:\msys64\mingw64\bin' >> $GITHUB_PATH
+          echo 'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\' >> $GITHUB_PATH
+          echo 'MW_MINGW64_LOC=/c/msys64/mingw64' >> $GITHUB_ENV
+      - name: Install Octave 10+ (macOS and Windows)
+        if: ${{ runner.os != 'Linux' }}
+        continue-on-error: true
+        run: |
+          # Octave 10 and newer link a mex file against the stable liboctmex alone,
+          # so one built here loads in later Octave versions as well
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install octave
+          else
+            # kept off GITHUB_PATH: its MinGW tools must not shadow the MSVC/CUDA build
+            curl --retry 3 -kL https://ftpmirror.gnu.org/octave/windows/octave-10.3.0-w64.7z --output octave_10.3.7z
+            7z x octave_10.3.7z -ooctave -y
+            rm -rf octave_10.3.7z
+          fi
+      - name: Cache Visual Studio 2019 BT (Windows)
+        if: ${{ matrix.os == 'windows-2022' }}
+        id: cache-vs2019
+        uses: actions/cache@v4
+        with:
+          path: 'C:\Program Files (x86)\Microsoft Visual Studio\2019'
+          key: vs2019-bt-${{ matrix.os }}-v1
+      - name: Install Visual Studio 2019 Build Tools (for cuda 10, if not cached)
+        if: ${{ matrix.os == 'windows-2022' && steps.cache-vs2019.outputs.cache-hit != 'true' }}
+        run: |
+          choco install visualstudio2019community --package-parameters "--add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows10SDK"
+      - name: Setup MSVC environment (Windows only)
+        shell: cmd
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+          echo PATH=%PATH% >> %GITHUB_ENV%
+          echo INCLUDE=%INCLUDE% >> %GITHUB_ENV%
+          echo LIB=%LIB% >> %GITHUB_ENV%
+          echo VCINSTALLDIR=%VCINSTALLDIR% >> %GITHUB_ENV%
+      - name: Cache CUDA toolkit (Linux)
+        if: ${{ runner.os == 'Linux' }}
+        id: cache-cuda-linux
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/cuda
+          key: cuda-10.2.89-${{ matrix.os }}-v1
+      - name: Install CUDA (Linux, if not cached)
+        if: ${{ runner.os == 'Linux' && steps.cache-cuda-linux.outputs.cache-hit != 'true' }}
+        run: |
+          cd /tmp && wget -q https://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
+          sudo sh /tmp/cuda_10.2.89_440.33.01_linux.run --silent --toolkit --override
+          rm -rf /tmp/cuda_10.2.89_440.33.01_linux.run
+          sudo perl -pi -e 's/#if\s+__GNUC__\s+>\s+\d+/#if __GNUC__ > 30/g' /usr/local/cuda/include/crt/host_config.h
+      - name: Set up CUDA env (Linux)
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          echo "/usr/local/cuda/bin" >> $GITHUB_PATH
+          ls /usr/local/cuda/bin
+          cat /usr/local/cuda/include/crt/host_config.h
+          /usr/local/cuda/bin/nvcc --version
+      - name: Cache CUDA toolkit (macOS)
+        if: ${{ runner.os == 'macOS' }}
+        id: cache-cuda-macos
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/cuda
+          key: cuda-10.2-mac-${{ matrix.os }}-v1
+      - name: Install CUDA (macOS, if not cached)
+        if: ${{ runner.os == 'macOS' && steps.cache-cuda-macos.outputs.cache-hit != 'true' }}
+        run: |
+          curl -o /tmp/cuda.zip --insecure https://mcx.space/dev/ci/cuda-10-2-0.zip
+          unzip /tmp/cuda.zip -d /tmp/
+          rm -rf /tmp/cuda.zip
+          sudo mv /tmp/cuda/ /usr/local/
+          sudo chmod +x /usr/local/cuda/bin/*
+          sudo chmod +x /usr/local/cuda/nvvm/bin/*
+      - name: Set up CUDA env (macOS)
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          echo "/usr/local/cuda/bin" >> $GITHUB_PATH
+          echo "CUDA_PATH=/usr/local/cuda/bin" >> $GITHUB_ENV
+          echo "CUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda/" >> $GITHUB_ENV
+          # symlink libomp headers — re-do every run since /usr/local/opt/libomp may be at a different version
+          sudo ln -sf /usr/local/opt/libomp/include/*.h /usr/local/cuda/include/ 2>/dev/null || true
+          mkdir -p ~/bin
+      # Windows uses CUDA 9.2: the CUDA 10.2 runtime, linked statically into the MATLAB mex,
+      # failed the first simulation of a MATLAB session and corrupted the MATLAB heap
+      # (R2023a, driver 536); a CUDA 9.2 mex of the same source runs cleanly
+      - name: Install CUDA (Windows only)
+        if: ${{ runner.os == 'Windows' }}
+        uses: Jimver/cuda-toolkit@v0.2.10
+        id: cuda-toolkit
+        with:
+          cuda: '9.2.148'
+          method: 'network'
+          sub-packages: '["nvcc", "cudart"]'
+      - name: Let CUDA 9.2 use Visual Studio 2019 (Windows only)
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          # CUDA 9.2 checks for MSVC up to 2017 (_MSC_VER 1913), and the VS2019 STL for CUDA 10.1U2+
+          sed -i 's/_MSC_VER > 1913/_MSC_VER > 1999/' "$CUDA_PATH/include/crt/host_config.h"
+          grep -n '_MSC_VER > 1999' "$CUDA_PATH/include/crt/host_config.h"
+          echo "CL=-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH" >> $GITHUB_ENV
+          nvcc --version
+      - name: Link libgomp.a (MacOS only)
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          sudo ln -s /usr/local/lib/gcc/10/libgomp.a /usr/local/lib/libgomp.a
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v1
+        with:
+          release: R2022a
+      - name: Set the oldest macOS the binaries run on (MacOS only)
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          # clang otherwise records the runner's macOS (14 or 15) as the oldest the binaries and mex
+          # files start on; 11.0 is the first macOS on arm64, 10.15 the oldest the macos-15 Xcode
+          # targets for x86_64, as the wheels; mcx's CUDA 10.2 build uses
+          # Xcode 10, whose newest SDK is 10.14, so 10.14 for x86_64
+          if [ "$(uname -m)" = "arm64" ]; then T=11.0; else T=10.14; fi
+          echo "MACOSX_DEPLOYMENT_TARGET=$T" >> $GITHUB_ENV
+      - name: Update RCS keywords
+        run: |
+          printf '\n[filter "rcs-keywords"]\n\tclean  = .git_filters/rcs-keywords.clean\n\tsmudge = .git_filters/rcs-keywords.smudge %f\n' >> .git/config
+          rm -rf src/*.c
+          git checkout src/*.c
+      - name: Build mcxlab for Octave
+        continue-on-error: ${{ runner.os != 'Linux' }}
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            cd src
+            make oct BACKEND=cudastatic
+            ldd ../mcxlab/mcx.mex
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            # nvcc 10.2 needs the Xcode 10 clang as its host compiler; the rest is
+            # compiled by the same clang, and Homebrew's mkoctfile (Octave 10+)
+            # links the mex against liboctmex alone
+            cd src
+            mkoctfile --version
+            # link the mex without a path to liboctmex: -loctmex finds this empty stub, which is
+            # dead-stripped, so the mex API resolves in the liboctmex that the running Octave (any
+            # 10+ version, wherever installed) has loaded (mkoctfile links with -undefined dynamic_lookup)
+            mkdir -p octstub && echo "" | clang -dynamiclib -x c - -o "$PWD/octstub/liboctmex.dylib" -install_name @rpath/liboctmex-stub.dylib
+            make oct CC=clang CXX=clang++ GCC=clang MEXLINKOPT="-L$PWD/octstub -Wl,-dead_strip_dylibs"
+            otool -L ../mcxlab/mcx.mex
+            if otool -L ../mcxlab/mcx.mex | tail -n +2 | grep -E "liboctmex|/opt/homebrew|/usr/local"; then
+                echo "the mex links a library of the build machine"; exit 1
+            fi
+          else
+            # nvcc only drives MSVC, and Octave's mkoctfile only MinGW: the objects
+            # come from the Makefile (AR=true skips its mkoctfile link), and the mex
+            # is linked by nvcc against an MSVC import library for liboctmex made
+            # from the DLL's export table.  liboctmex's mx/mex API is plain C.
+            OCT="$PWD/octave/octave-10.3.0-w64/mingw64"
+            OCTINC=$(cygpath -m "$(ls -d "$OCT"/include/octave-*/octave)")
+            cd src
+            make oct AR=true
+            export MSYS_NO_PATHCONV=1
+            dumpbin /nologo /exports "$(cygpath -w "$OCT/bin/liboctmex-1.dll")" | tr -d '\r' | \
+                awk 'BEGIN { print "LIBRARY liboctmex-1.dll"; print "EXPORTS" } $1 ~ /^[0-9]+$/ && NF >= 4 { print "    " $4 }' > liboctmex.def
+            head -5 liboctmex.def; grep -c . liboctmex.def
+            lib /nologo /def:liboctmex.def /out:liboctmex.lib /machine:x64
+            # the symbol Octave 10+ checks on loading a mex, as mkoctfile adds it:
+            # the SOVERSION of the liboctmex it was built for (liboctmex-1.dll: 1)
+            SOVER=$(ls "$OCT"/bin/liboctmex-*.dll | sed 's/.*liboctmex-\([0-9]*\)\.dll/\1/')
+            # exported here: nvcc splits -Xlinker arguments at commas, so /EXPORT:x,DATA fails
+            echo "__declspec(dllexport) const int __octave_mex_soversion__ = $SOVER;" > octsover.c
+            nvcc -c octsover.c -o octsover.obj
+            nvcc -c -DMATLAB_MEX_FILE -DMCX_CONTAINER -D_CRT_SECURE_NO_DEPRECATE -DWIN32 -Xcompiler -openmp \
+                -I"$OCTINC" -I"$OCTINC/.." -Izmat -Izmat/easylzma -Iubj -I"$CUDA_PATH/include" mcxlab.cpp -o mcxlab.obj
+            nvcc -shared -o ../mcxlab/mcx.mex mcxlab.obj mcx_core.obj mcx_utils.obj mcx_shapes.obj mcx_tictoc.obj \
+                mcx_bench.obj mcx_mie.obj mcx_lang.obj cjson/cJSON.obj octsover.obj liboctmex.lib \
+                -L"$CUDA_PATH/lib/x64" -lcudart_static -Xcompiler -openmp -Xlinker /EXPORT:mexFunction
+            unset MSYS_NO_PATHCONV
+            objdump -p ../mcxlab/mcx.mex | grep "DLL Name:"
+            rm -f ../mcxlab/mcx.exp ../mcxlab/mcx.lib liboctmex.* octsover.*
+          fi
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            export PATH="$OCT/bin:$PATH"
+          fi
+          octave-cli --eval "fprintf(1,['OCTAVE_ARCH=' regexprep(computer('arch'), 'darwin[0-9.]+-', 'darwin-')])"
+          octave-cli --eval "fprintf(1,['OCTAVE_ARCH=' regexprep(computer('arch'), 'darwin[0-9.]+-', 'darwin-')])" >> $GITHUB_ENV
+          # the mex must load: called with no input it prints its usage; there is
+          # no GPU here, so this is as far as it can go
+          octave-cli --eval "cd('../mcxlab'); version, mcx()" 2>&1 | tee octload.txt
+          grep -q MCXLAB octload.txt
+          ! grep -iE "could not|cannot|invalid|undefined|error" octload.txt
+          rm -f octload.txt
+      - name: Build mcxlab for MATLAB
+        if: ${{ runner.os != 'macOS' }}
+        run: |
+          cd src
+          make clean   # the Octave build may have stopped half way
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            make mex
+            objdump -p ../mcxlab/mcx.mexw* | grep "DLL Name:"
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            which mex
+            make mex CC=gcc-10 CXX=g++-10 MEXLINKOPT="-static-libstdc++ -static-libgcc -fopenmp" EXTRALIB="-f mexopts_maci64_gcc.xml"
+            otool -L ../mcxlab/mcx.mex*
+          else
+            make mex MEXLINKOPT="-static-libstdc++ -static-libgcc -fopenmp"
+            ldd ../mcxlab/mcx.mex*
+            strip ../mcxlab/mcx.mex*
+          fi
+      - name: Build binary
+        run: |
+          cd src
+          make clean
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            make AR=g++ BACKEND=cudastatic USERLINKOPT='lib/libzmat.a -Wl,-Bstatic -lgomp -Wl,-Bdynamic'
+            ldd ../bin/mcx
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            # Homebrew's libomp.dylib is not on the users' Macs: link its static libomp.a
+            mkdir build && cd build && cmake .. -DCMAKE_CXX_ARCHIVE_CREATE="<CMAKE_AR> cr <TARGET> <LINK_FLAGS> <OBJECTS>" -DCMAKE_RANLIB="" \
+                -DOpenMP_C_LIB_NAMES=omp -DOpenMP_CXX_LIB_NAMES=omp -DOpenMP_omp_LIBRARY=/usr/local/lib/libomp.a && make VERBOSE=1 && cd ..
+            otool -L ../bin/mcx
+            otool -L ../mcxlab/mcx.mex*
+            if otool -L ../bin/mcx ../mcxlab/mcx.mexmaci64 | grep -E "^\s+(/opt/homebrew|/usr/local)"; then
+                echo "mcx or its MATLAB mex links a library of the build machine"; exit 1
+            fi
+          else
+            make static
+            objdump -p ../bin/mcx.exe | grep "DLL Name:"
+          fi
+      - name: Run host unit tests (Linux only)
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          cd src
+          make unittest
+          rm -f ../bin/mcx_unittest
+      - name: Run the pmcx unit tests (Linux only; the simulations are skipped without a GPU)
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          python3 -m pip install numpy jdata bjdata || python3 -m pip install --break-system-packages numpy jdata bjdata
+          cd pmcx
+          PYTHONPATH=$PWD python3 -m unittest discover -s test -v
+      - name: Build mcxstudio
+        # macOS: the build_mcxstudio_macos job (this one pins an old Xcode for CUDA)
+        if: ${{ runner.os != 'macOS' }}
+        continue-on-error: true
+        run: |
+          cd mcxstudio2
+          make
+          cp bin/mcxstudio* ../bin
+      - name: Rebuild Linux release binaries for glibc 2.17 (manylinux2014)
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        run: |
+          # built on this runner, every binary and mex file needs GLIBC_2.34 and
+          # does not start on Ubuntu 20.04 or older; the manylinux2014 (CentOS 7)
+          # image links them against glibc 2.17 and checks that they do
+          docker build --build-arg WITH_CUDA=1 --build-arg WITH_LAZARUS=1 -t mcx-linux-release-builder .github/linux_release_builder
+          MLROOT=$(dirname "$(dirname "$(readlink -f "$(which matlab)")")")
+          OCTINC=$(dirname "$(dirname "$(find /usr/include -path '*/octave/mex.h' | head -1)")")
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/src" \
+              -v "$MLROOT:$MLROOT:ro" -e MATLAB_ROOT="$MLROOT" \
+              -v "$OCTINC:/octinc:ro" -e OCTAVE_INCDIR=/octinc \
+              mcx-linux-release-builder bash .github/linux_release_builder/build_mcx.sh
+      - name: Check the oldest macOS the binaries need (MacOS only)
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          fail=0
+          for f in bin/mcx mcxlab/mcx.mex mcxlab/mcx.mexmaci64 mcxlab/mcx.mexmaca64; do
+            [ -f "$f" ] || continue
+            # a MATLAB mex gets the target MATLAB's mex sets, and loads only in a MATLAB that needs that macOS
+            case "$f" in *.mexmaci64|*.mexmaca64) echo "$f needs macOS $(otool -l "$f" | awk '$1=="minos"{print $2; exit}') (MATLAB's own)"; continue ;; esac
+            minos=$(otool -l "$f" | awk '/LC_BUILD_VERSION/{b=1} b && $1=="minos"{print $2; exit} /LC_VERSION_MIN_MACOSX/{v=1} v && $1=="version"{print $2; exit}')
+            echo "$f needs macOS $minos"
+            if [ -z "$minos" ] || [ "$(printf '%s\n%s\n' "$minos" "$MACOSX_DEPLOYMENT_TARGET" | sort -V | tail -1)" != "$MACOSX_DEPLOYMENT_TARGET" ]; then
+              echo "  newer than $MACOSX_DEPLOYMENT_TARGET: it would not start on older macOS"; fail=1
+            fi
+          done
+          exit $fail
+      - name: Create package folder
+        run: |
+          mkdir packages
+          mkdir -p mcxlab/octave/${{ env.OCTAVE_ARCH }}
+      - name: Create release tag
+        run: perl -e "print 'RELEASE_TAG='. lc('${{ runner.os }}-${{ runner.arch }}-github-latest')" >> $GITHUB_ENV
+      - name: Zip mcxlab
+        run: |
+          # strip both mex files on Linux (the Windows ones are built by MSVC and have no
+          # symbols for GNU strip); no upx on mex files: a packed mex aborts MATLAB/Octave when it raises an error (C++ exceptions can not unwind)
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            strip --strip-unneeded mcxlab/mcx.mex* || true
+          fi
+          [[ -f mcxlab/mcx.mex ]] && mv mcxlab/mcx.mex mcxlab/octave/${{ env.OCTAVE_ARCH }}
+          # the helper functions of utils/ as mcxlab's private folder: mcxlab.m calls mcxdetphoton,
+          # mcxpreview, mcxplotphotons and mcxsvmc, so the package works without utils/ on the path
+          rm -rf mcxlab/private && cp -a utils mcxlab/private
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp 'C:\Windows\System32\vcomp140.dll' mcxlab
+            7z a -tzip packages/mcxlab-${{ env.RELEASE_TAG }}.zip mcxlab
+          else
+            zip -FSr --symlink packages/mcxlab-${{ env.RELEASE_TAG }}.zip mcxlab
+          fi
+      - name: Upload mcxlab package
+        if: ${{ matrix.os == 'ubuntu-22.04' || matrix.os == 'macos-15-intel' || matrix.os == 'windows-2022' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-mcxlab-packages-${{ env.RELEASE_TAG }}
+          path: packages/mcxlab-${{ env.RELEASE_TAG }}.zip
+      - name: Prepare mcx package
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            strip bin/mcx* || true
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            rm -rf octave cuda_installer* bin/mcx.lib bin/mcx.exp
+            strip -S bin/mcx* || true
+            upx/upx-4.0.2-win64/upx -9 bin/mcx* || true
+            rm -rf upx
+          else
+            strip bin/mcx* || true
+            upx -9 bin/mcx* || true
+          fi
+          rm -rf .git .github mcxlab vsproj nsight mcxstudio mcxstudio2 src Makefile package icons genlog.sh .git* .travis* deploy icons filter mcxcloud pmcx pymcx winget Xcode* lib
+      - name: Zip mcx
+        run: |
+          cd .. && pwd
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp 'C:\Windows\System32\vcomp140.dll' mcx/bin
+            7z a -tzip mcx/packages/mcx-${{ env.RELEASE_TAG }}.zip mcx -xr!mcx/packages
+          else
+            zip -FSr --symlink mcx/packages/mcx-${{ env.RELEASE_TAG }}.zip mcx -x 'mcx/packages*'
+          fi
+      - name: Upload mcx package
+        if: ${{ matrix.os == 'ubuntu-22.04' || matrix.os == 'macos-15-intel' || matrix.os == 'windows-2022' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-mcx-packages-${{ env.RELEASE_TAG }}
+          path: packages/mcx-${{ env.RELEASE_TAG }}.zip
+
+  build_mcxstudio_macos:
+    name: Build+Upload MCX Studio for macOS (universal)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Set up fpc 3.2.2 and lazbuild 3.6
+        run: |
+          set -e
+          # fpc's macOS installer carries the arm64 and x86_64 compilers; its payload
+          # is unpacked into a prefix of its own (no installer, no root), and
+          # lazbuild is built from the Lazarus source, as on any machine without
+          # an admin account; both are pinned by their sha256
+          # fetch <file> <url fallback> <sha256>: mcx.space mirror first
+          fetch() {
+            for url in "https://mcx.space/dev/ci/$1" "$2"; do
+              rm -f "$1"
+              curl -L --retry 5 --retry-all-errors --retry-delay 10 -o "$1" "$url" && echo "$3  $1" | shasum -a 256 -c - && return 0
+            done
+            return 1
+          }
+          T=$RUNNER_TEMP/fpclaz
+          mkdir -p $T && cd $T
+          fetch fpc-3.2.2.intelarm64-macosx.dmg "https://downloads.sourceforge.net/lazarus/Lazarus%20macOS%20x86-64/Lazarus%204.4/fpc-3.2.2.intelarm64-macosx.dmg" \
+                05d4510c8c887e3c68de20272abf62171aa5b2ef1eba6bce25e4c0bc41ba8b7d
+          V=$(hdiutil attach -nobrowse -readonly fpc-3.2.2.intelarm64-macosx.dmg | grep -o '/Volumes/.*' | head -1)
+          pkgutil --expand-full "$V/fpc-3.2.2-intelarm64-macosx.mpkg/Contents/Packages/fpc-3.2.2-intelarm64-macosx.pkg" x
+          hdiutil detach "$V"
+          mv x/Payload/usr/local fpc
+          mkdir -p fpc/etc
+          fpc/bin/fpcmkcfg -d basepath=$T/fpc/lib/fpc/3.2.2 -o fpc/etc/fpc.cfg
+          echo "-XR$(xcrun --show-sdk-path)" >> fpc/etc/fpc.cfg
+          # the linker of Xcode 16 (macos-15) crashes on fpc 3.2.2's objects (ld: Segmentation fault: 11);
+          # its classic linker (ld-classic, next to ld) links them as Xcode 15's did. fpc calls the
+          # ld of the Command Line Tools, which may lack ld-classic: use a toolchain that has it
+          LDDIR=
+          for d in "$(dirname "$(xcrun -f ld)")" /Library/Developer/CommandLineTools/usr/bin \
+                   /Applications/Xcode*.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin; do
+            if [ -x "$d/ld-classic" ] && [ -x "$d/ld" ]; then LDDIR=$d; break; fi
+          done
+          if [ -n "$LDDIR" ]; then
+            echo "linking with the classic linker of $LDDIR"
+            echo "-FD$LDDIR" >> fpc/etc/fpc.cfg
+            echo "-k-ld_classic" >> fpc/etc/fpc.cfg
+          else
+            xcode-select -p; ld -v 2>&1 | head -3
+            ls /Library/Developer/CommandLineTools/usr/bin | grep -i '^ld' || true
+            ls -d /Applications/Xcode*.app || true
+            echo "::error::no ld-classic in this runner's toolchains: fpc 3.2.2 objects crash the new linker"
+            exit 1
+          fi
+          fetch lazarus-3.6-0.tar.gz "https://downloads.sourceforge.net/project/lazarus/Lazarus%20Zip%20_%20GZip/Lazarus%203.6/lazarus-3.6-0.tar.gz" \
+                e65b90367f63bf17cb7bf35f5be69c9ef704ca494e91d8c67d072e3373fab085
+          tar -xzf lazarus-3.6-0.tar.gz
+          export PATH=$T/fpc/bin:$PATH PPC_CONFIG_PATH=$T/fpc/etc
+          make -C lazarus lazbuild LCL_PLATFORM=cocoa CPU_TARGET=aarch64 > lazbuild.log 2>&1 || { tail -30 lazbuild.log; exit 1; }
+          echo "$T/lazarus" >> $GITHUB_PATH
+          echo "$T/fpc/bin" >> $GITHUB_PATH
+          echo "PPC_CONFIG_PATH=$T/fpc/etc" >> $GITHUB_ENV
+          echo "LAZDIR=$T/lazarus" >> $GITHUB_ENV
+          # the x86_64 half is tested under Rosetta
+          /usr/bin/pgrep -q oahd || sudo softwareupdate --install-rosetta --agree-to-license
+      - name: Build MCXStudio.app
+        run: |
+          cd mcxstudio2
+          make app LAZDIR=$LAZDIR
+          file bin/MCXStudio.app/Contents/MacOS/mcxstudio
+          codesign --verify --deep --strict bin/MCXStudio.app
+      - name: Test MCXStudio.app (arm64, and x86_64 under Rosetta)
+        timeout-minutes: 20
+        run: |
+          cd mcxstudio2
+          make test-doc
+          for a in arm64 x86_64; do
+            echo "== $a"
+            arch -$a bin/MCXStudio.app/Contents/MacOS/mcxstudio --self-test ../example
+          done
+      - name: Zip MCXStudio.app
+        run: |
+          mkdir -p packages
+          # ditto keeps the bundle's signature and extended attributes intact
+          ditto -c -k --keepParent mcxstudio2/bin/MCXStudio.app packages/mcxstudio-macos-universal-github-latest.zip
+          ls -l packages
+      - name: Upload MCXStudio.app package
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-mcxstudio-packages-macos-universal-github-latest
+          path: packages/mcxstudio-macos-universal-github-latest.zip
+
+  upload_package:
+    name: Upload Packages
+    needs: [build_all, build_mcxstudio_macos]
+    runs-on: ubuntu-22.04
+    # the macOS GUI is optional: a failure there leaves out MCXStudio.app, not the uploads
+    if: ${{ !cancelled() && needs.build_all.result == 'success' && github.repository_owner == 'fangq' && github.actor == 'fangq' && github.event_name != 'pull_request'}}
+    steps:
+      - name: Download mcx
+        uses: actions/download-artifact@v4
+        with:
+          pattern: all-mcx*
+          merge-multiple: true
+          path: packages
+      - name: Create all-in-one octave mcxlab
+        run: |
+          cd packages
+          unzip -n 'mcxlab*.zip'
+          tree .
+          zip -FSr --symlink mcxlab-allinone-github-latest.zip mcxlab
+          rm -rf mcxlab
+      - name: Display structure of downloaded files
+        run: ls -R packages
+      - name: Copy package to server
+        if: ${{ github.repository_owner == 'fangq' && github.actor == 'fangq' && github.event_name != 'pull_request'}}
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.MCX_SERVER }}
+          username: ${{ secrets.MCX_SERVER_USER }}
+          ssh_private_key: ${{ secrets.MCX_SERVER_SSH_KEY }}
+          local_path: "packages/*"
+          remote_path: ${{ secrets.MCX_CI_PATH }}

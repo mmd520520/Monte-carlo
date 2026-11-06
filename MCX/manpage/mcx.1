@@ -1,0 +1,598 @@
+.\" Manpage for mcx.
+.\" Contact fangqq@gmail.com to correct errors or typos.
+.TH MCX 1 "October 2026" "v2026 (3.0)" "Monte Carlo eXtreme (MCX) man page"
+.SH NAME
+mcx \- a GPU-accelerated 3-D photon transport simulator
+.SH SYNOPSIS
+.B mcx
+\-f input.json [\-option1 value] [\-option2 value] ...
+.br
+.B mcx
+\-Q benchmark [\-option1 value] ...
+.br
+.B mcx
+\-N dbname/benchmark [\-option1 value] ...
+.SH DESCRIPTION
+Monte Carlo eXtreme (MCX) is a fast photon transport simulation
+software for 3D heterogeneous turbid media. By taking advantage of
+the massively parallel threads and extremely low memory latency in a
+modern graphics processing unit (GPU), this program is able to perform Monte
+Carlo (MC) simulations at a blazing speed, typically hundreds to
+a thousand times faster than a fully optimized CPU-based MC
+implementation.
+
+MCX is written in C and CUDA and runs on NVIDIA GPUs. The same source code
+can also be compiled for AMD GPUs using ROCm/HIP (cmake \-DUSE_HIP=ON).
+For other OpenCL-capable processors, including Intel/AMD/Apple GPUs and CPUs,
+please use MCX-CL (mcxcl), which accepts the same input files and command line
+options.
+
+MCX reads simulation settings from a JSON input file (or a legacy .inp file),
+a built-in benchmark (\-Q) or a simulation shared on NeuroJSON.io (\-N). By
+default, the volumetric output is saved in the JNIfTI format (.jnii), detected
+photon data in a .jdt (JSON/JData) file, and photon trajectories, if requested,
+in a _traj.jdt file.
+
+The underlying algorithms of this software can be found in
+
+Qianqian Fang and David Boas, "Monte Carlo Simulation of Photon Migration
+in 3D Turbid Media Accelerated by Graphics Processing Units," Opt. Express,
+vol. 17, issue 22, pp. 20178-20190 (2009). URL: https://doi.org/10.1364/OE.17.020178
+
+Leiming Yu, Fanny Nina-Paravecino, David Kaeli, Qianqian Fang, "Scalable
+and massively parallel Monte Carlo photon transport simulations for
+heterogeneous computing platforms," J. Biomed. Opt. 23(1), 010504 (2018).
+URL: https://doi.org/10.1117/1.JBO.23.1.010504
+
+Shijie Yan and Qianqian Fang, "Hybrid mesh and voxel based Monte Carlo
+algorithm for accurate and efficient photon transport modeling in complex
+bio-tissues," Biomed. Opt. Express, 11(11) pp. 6262-6270 (2020).
+URL: https://opg.optica.org/boe/abstract.cfm?uri=boe-11-11-6262
+
+Please see https://mcx.space and https://mcx.space/wiki for detailed
+documentation and examples. The MCX project is funded by the US
+National Institute of Health (NIH)/National Institute of General Medical
+Sciences (NIGMS) under grant R01-GM114365 (PI: Qianqian Fang). This software
+is written and maintained by Dr. Qianqian Fang (https://fanglab.org).
+
+.SH OPTIONS
+Running `mcx` without any parameter prints the help information (same
+as \-h/\-\-help). One or multiple options can be used in the command line.
+If an option appears multiple times, the last appearance overwrites earlier
+settings. The values shown in brackets below are the defaults.
+
+.SS Required options
+.TP
+\fB\-f/\-\-input\fR \fIfilename|'{...}'|-\fR
+Read the simulation settings from an input file. If the file name has a
+\&'.json' extension, it is parsed as a JSON input file; a file ending with
+\&'.inp' is read in the legacy text format. If the file name contains spaces,
+one must quote the full file name (double quotes on Windows).
+
+If this flag is followed by an inline JSON string, such as \-f '{...}', the
+parameter is parsed as an "inline JSON input file". If \-f is followed by
+nothing or a single '\-', mcx reads the input from stdin via a pipe.
+
+.TP
+\fB\-Q/\-\-bench\fR \fI[name]\fR
+Run a built-in benchmark. Use \-Q without a name to list all built-in
+benchmarks. As of MCX v2026, these include
+cube60, cube60b, cube60planar, cubesph60b, onecube, twocube, skinvessel,
+sphshells, spherebox and colin27.
+
+The settings of a built-in benchmark can be overwritten by additional
+command line flags, such as \-Q cube60 \-n 1e8, which runs 1e8 photons instead
+of the default 1e6. Use \-\-bench name \-\-dumpjson to export the benchmark as a
+standalone JSON input file.
+
+.TP
+\fB\-N/\-\-net\fR \fI[benchmark]\fR
+Download and run a simulation shared on NeuroJSON.io; use \-N alone to list
+the available simulations. The input can be a dataset REST-API URL starting
+with http, or in the format of "dbname/benchmarkname". This function requires
+\&'curl', install from https://curl.se/
+
+.SS MC options
+.TP
+\fB\-n/\-\-photon\fR \fI[0|int]\fR
+Total number of photons to be simulated. The number can be an integer, such as
+100000, or in an exponential form, such as 1e5. The maximum accepted value is
+9.2234e+18 on 64bit systems.
+
+.TP
+\fB\-r/\-\-repeat\fR \fI[1|+/-int]\fR
+If N is positive, repeat the simulation N times, so that a total of
+nphoton*N photons are simulated with nphoton per batch. If N is negative,
+the total photons are split into abs(N) batches, each simulating
+nphoton/abs(N) photons. This option can be used to keep the run time of each
+kernel below the driver watchdog limit on a GPU that also drives a display.
+
+.TP
+\fB\-b/\-\-reflect\fR \fI[1|0]\fR
+1 to reflect or transmit photons at the boundaries based on Fresnel's
+equations when refractive indices mismatch; 0 to let photons exit.
+
+.TP
+\fB\-B/\-\-bc\fR \fI['______000000']\fR
+Per-face boundary condition (BC), case insensitive. The first 6 letters define
+the BC of the bounding box faces at the \-x,\-y,\-z,+x,+y,+z axes and overwrite
+\-b if given. Each letter can be one of
+.nf
+    '_': undefined, fallback to \-b
+    'r': like \-b 1, Fresnel reflection BC
+    'a': like \-b 0, total absorption BC
+    'm': mirror or total reflection BC
+    'c': cyclic BC, enter from opposite face
+.fi
+
+If the input contains additional 6 letters, the 7th-12th letters can be
+.nf
+    '0': do not use this face to detect photons, or
+    '1': use this face for photon detection (\-d 1)
+.fi
+the order of the faces for letters 7-12 is the same as the first 6 letters.
+For example, \-\-bc ______010 saves photons exiting at the plane y=0.
+
+.TP
+\fB\-u/\-\-unitinmm\fR \fI[1.|float]\fR
+The edge length, in mm, of a voxel. For example, if the voxels are
+0.1x0.1x0.1 mm^3, use '\-u 0.1'. Only isotropic voxels are supported.
+
+.TP
+\fB\-U/\-\-normalize\fR \fI[1|0|2]\fR
+1 to normalize the output; 0 to save the raw accumulated values. For fluence,
+the normalization produces a Green's function, removing the dependency on the
+total photon number, voxel size and time-gate width. \-U 2 behaves as 1,
+except in the replay mode, where the normalization by the total detected
+weight is skipped and only the unit conversion is applied.
+
+.TP
+\fB\-E/\-\-seed\fR \fI[1648335518|int|file.jdt|file.mch]\fR
+Set the seed of the host random number generator (RNG), which in turn
+initializes the seeds of each GPU thread. \-E \-1 seeds the RNG from the
+system clock. If followed by a detected photon file saved with \-q 1 (.jdt,
+legacy .jdat or .mch), mcx "replays" the detected photons; the replay mode
+is used to compute the mua/mus Jacobians (see \-O and \-Y).
+
+A fixed seed reproduces a simulation bit-wise only when the thread and block
+sizes are fixed (\-A 0); see \-A.
+
+.TP
+\fB\-z/\-\-srcfrom0\fR \fI[0|1]\fR
+1: the volume origin is [0 0 0]; 0: the origin is at [1 1 1], i.e. the
+lower-bottom corner of the first voxel. All source and detector positions
+are referenced from this origin.
+
+.TP
+\fB\-k/\-\-voidtime\fR \fI[1|0]\fR
+When the source is outside of the domain, 1 starts the time-of-flight
+at launch; 0 starts the timer when the photon enters the first non-zero voxel.
+
+.TP
+\fB\-Y/\-\-replaydet\fR \fI[0|int]\fR
+In the replay mode (\-E), replay only the detected photons from the given
+detector (detector IDs start from 1). If 0, all detectors are replayed and
+the Jacobians are summed; if \-1, all detectors are replayed and the Jacobians
+are saved separately.
+
+.TP
+\fB\-V/\-\-specular\fR \fI[0|1]\fR
+1 if the source is located in the background (zero voxels), so that the
+specular reflection at the entry to the domain is considered; 0 if the source
+is inside the medium. The energy lost by specular reflection is excluded from
+the total in the absorption fraction reported at the end of a run.
+
+.TP
+\fB\-e/\-\-minenergy\fR \fI[0.|float]\fR
+The minimum photon packet weight to trigger Russian roulette.
+
+.TP
+\fB\-g/\-\-gategroup\fR \fI[1|int]\fR
+The maximum number of time gates simulated in a single kernel run. Only use
+this option when the GPU memory can not hold the data for all time gates, in
+which case mcx runs the simulation multiple times, each recording n gates.
+This adds overhead and should be avoided when possible.
+
+.SS GPU options
+.TP
+\fB\-L/\-\-listgpu\fR
+Print the information of all supported GPUs and exit, for example
+.nf
+    $ mcx \-L
+    =============================   GPU Information  ================================
+    Device 1 of 1:		NVIDIA TITAN V
+    Compute Capability:	7.0
+    Global Memory:		12625903616 B
+    Constant Memory:	65536 B
+    Shared Memory:		49152 B
+    Registers:		65536
+    Clock Speed:		1.46 GHz
+    Number of SMs:		80
+    Number of Cores:	5120
+    Auto-thread:		163840
+    Auto-block:		64
+.fi
+
+.TP
+\fB\-t/\-\-thread\fR \fI[16384|int]\fR
+Total number of GPU threads, used when \-A 0. The number should be a multiple
+of 32 (the warp size); a large number (>10000) is needed to fully use a GPU.
+
+.TP
+\fB\-T/\-\-blocksize\fR \fI[64|int]\fR
+Number of threads per block, used when \-A 0. It should be a multiple of 32.
+
+.TP
+\fB\-A/\-\-autopilot\fR \fI[1|int]\fR
+1 lets mcx decide the thread and block sizes from the GPU's resources; 0 uses
+\-t and \-T. In the autopilot mode, photons are also dispatched to the GPU
+threads dynamically, so runs with the same seed agree statistically but not
+bit-wise; use \-A 0 to reproduce a run exactly.
+
+.TP
+\fB\-G/\-\-gpu\fR \fI[0|int|'1101']\fR
+Select the GPU to use, in the order listed by \-L; 0 lets mcx choose. When
+followed by a string made of only 0s and 1s, it is a mask of active devices;
+for example, 1101 uses the 1st, 2nd and 4th GPUs together.
+
+.TP
+\fB\-W/\-\-workload\fR \fI['50,30,20']\fR
+Relative workload of each active device in a multi-GPU simulation, normalized
+by the sum. For example, \-W 10,20,20 splits 1e6 photons into 2e5, 4e5 and 4e5
+photons over 3 GPUs. By default, photons are evenly split.
+
+.TP
+\fB\-I/\-\-printgpu\fR
+Print the GPU information, as \-L, and then run the simulation.
+
+.TP
+\fB\-\-atomic\fR \fI[1|0]\fR
+Deprecated and ignored. Atomic accumulation is always used; the former
+non-atomic mode raced and lost data on modern GPUs.
+
+.SS Input options
+.TP
+\fB\-P/\-\-shapes\fR \fI'{...}'\fR
+A JSON string defining additional shapes in the grid. Only the root object
+named 'Shapes' is parsed and added to the domain defined by \-f or \-\-bench.
+For example
+.nf
+    \-P '{"Shapes":[{"ZLayers":[[1,10,1],[11,30,2],[31,60,3]]}]}'
+.fi
+defines a 3-layer medium. The supported primitives include Name, Origin, Grid,
+Sphere, Box, Subgrid, {XYZ}Layers, {XYZ}Slabs, Cylinder and UpperSpace; most
+objects have a 'Tag' field specifying the tissue label.
+
+.TP
+\fB\-j/\-\-json\fR \fI'{...}'\fR
+A JSON string to modify any setting defined by \-f or \-\-bench, using the same
+structure as the JSON input file. For example
+.nf
+    \-j '{"Optode":{"Source":{"Type":"fourier","Param1":[40,0,0,2]}}}'
+.fi
+changes the source type and its first parameter while keeping everything else.
+When \-f, \-j, \-P and other flags are all given, the priorities are
+.nf
+    all other command line flags > \-j > \-P > \-f
+.fi
+
+.TP
+\fB\-K/\-\-mediabyte\fR \fI[1|int|str]\fR
+The volume data format, either a number or a string from the list below
+.nf
+    1 or byte: 0-128 tissue labels
+    2 or short: 0-65535 (max to 4000) tissue labels
+    4 or integer: integer tissue labels
+   96 or asgn_float: mua/mus/g/n 4xfloat format
+   97 or svmc: split-voxel MC 8-byte format
+   98 or mixlabel: label1+label2+label1_percentage
+   99 or labelplus: 32bit composite voxel format
+  100 or muamus_float: 2x 32bit floats for mua/mus
+  101 or mua_float: 1 float per voxel for mua
+  102 or muamus_half: 2x 16bit float for mua/mus
+  103 or asgn_byte: 4-byte gray-levels for mua/s/g/n
+  104 or muamus_short: 2-short gray-levels for mua/s
+.fi
+
+When formats 99 or 102 are used, the mua/mus values in the input volume
+must be pre-scaled by the voxel size (unitinmm) if it is not 1. Pre-scaling
+is not needed when using these 2 formats in mcxlab/pmcx.
+
+.TP
+\fB\-a/\-\-array\fR \fI[0|1]\fR
+1 for a C array (row-major); 0 for a MATLAB array (column-major), whose
+left-most index is the fastest.
+
+.SS Output options
+.TP
+\fB\-s/\-\-session\fR \fIsessionid\fR
+A string to label all output file names. If not given, the input file name
+is used.
+
+.TP
+\fB\-O/\-\-outputtype\fR \fI[X|FEJPMRLSTBADUVWQ]\fR
+The quantity saved in the volumetric output, case insensitive
+.nf
+    X - output flux (fluence rate)
+    F - fluence, i.e. flux integrated over each time gate
+    E - energy deposition
+    J - Jacobian (replay mode)
+    P - scattering event counts at each voxel (replay mode only)
+    M - momentum transfer (replay mode)
+    L - total pathlength
+    R - RF/FD mua Jacobian (replay, needs \-E), or RF forward complex
+        fluence (forward, without \-E, needs omega); output is complex
+    S - RF/FD mus Jacobian (replay mode only)
+    T - time-of-flight*path
+    B - time-of-flight*nscat
+    A - adjoint mua Jacobian (needs detector pos. and dir.)
+    D - adjoint D-coefficient Jacobian (needs detector pos. and dir.)
+    U - adjoint mus Jacobian
+    V - adjoint mus' Jacobian
+    W - dual adjoint [J_mua,J_D] pair in one session
+    Q - dual adjoint [J_mua,J_mus'] pair in one session
+.fi
+
+The adjoint outputs (A/D/U/V/W/Q) are computed from forward simulations of
+the sources and the detectors; each detector needs a direction
+(Optode.Detector.Dir in the JSON input). Both the forward fluence and the
+Jacobians are saved.
+
+.TP
+\fB\-d/\-\-savedet\fR \fI[1|0-3]\fR
+1 to save the data of detected photons; 0 not to save; 2 reserved; 3 to
+terminate the simulation when the detected photon buffer is filled. The
+detected photons are saved in session_detp.jdt (see FILES).
+
+.TP
+\fB\-w/\-\-savedetflag\fR \fI[DP|DSPMXVW]\fR
+A case-insensitive string, or a sum of numbers, controlling the detected
+photon data fields (the number of columns is shown in parentheses)
+.nf
+     1 D  output detector ID (1)
+     2 S  output partial scat. event counts (#media)
+     4 P  output partial path-lengths (#media)
+     8 M  output momentum transfer (#media)
+    16 X  output exit position (3)
+    32 V  output exit direction (3)
+    64 W  output initial weight (1)
+.fi
+By default, only the detector ID and the partial path-lengths are saved.
+
+.TP
+\fB\-x/\-\-saveexit\fR \fI[0|1]\fR
+1 to save photon exit positions and directions; implies \-d 1. Same as adding
+\&'XV' to \-w.
+
+.TP
+\fB\-X/\-\-saveref\fR \fI[0|1]\fR
+1 to save the diffuse reflectance at the air voxels right outside of the
+domain; if non-zero voxels appear at the boundary, pad 0s before using \-X.
+
+.TP
+\fB\-m/\-\-momentum\fR \fI[0|1]\fR
+1 to save the photon momentum transfer, used in diffuse correlation
+spectroscopy (DCS) simulations. Same as adding 'M' to \-w.
+
+.TP
+\fB\-q/\-\-saveseed\fR \fI[0|1]\fR
+1 to save the RNG seeds of the detected photons for replay (see \-E).
+
+.TP
+\fB\-M/\-\-dumpmask\fR \fI[0|1]\fR
+1 to dump the detector volume mask for debugging.
+
+.TP
+\fB\-H/\-\-maxdetphoton\fR \fI[1000000]\fR
+The maximum number of detected photons that can be saved. If more photons are
+detected, mcx prints a warning with the number needed.
+
+.TP
+\fB\-S/\-\-save2pt\fR \fI[1|0]\fR
+1 to save the volumetric output (as specified by \-O); 0 not to save.
+
+.TP
+\fB\-F/\-\-outputformat\fR \fI[jnii|...]\fR
+The volumetric data output format
+.nf
+    mc2 - MCX mc2 format (binary 32bit float)
+    jnii - JNIfTI format (https://neurojson.org)
+    bnii - Binary JNIfTI (https://neurojson.org)
+    nii - NIfTI format
+    hdr - Analyze 7.5 hdr/img format
+    tx3 - GL texture data for rendering (GL_RGBA32F)
+.fi
+
+The bnii/jnii formats support compression (\-Z) and generate small files. Load
+jnii (JSON) and bnii (BJData) files using the lightweight libraries below
+.nf
+    MATLAB/Octave: JNIfTI toolbox https://neurojson.org/download/jnifty
+    MATLAB/Octave: JSONLab toolbox https://neurojson.org/download/jsonlab
+    Python: PyJData https://neurojson.org/download/pyjdata
+    JavaScript: JSData https://neurojson.org/download/jsdata
+.fi
+
+.TP
+\fB\-Z/\-\-zip\fR \fI[zlib|...]\fR
+The compression method used when saving data in the JSON/JNIfTI formats
+(\-F jnii/bnii or \-\-dumpjson); a number 0-6 or a name, case insensitive
+.nf
+    0 zlib: zip format (moderate compression,fast)
+    1 gzip: gzip format (compatible with *.gz)
+    2 base64: base64 encoding with no compression
+    3 lzip: lzip format (high compression,very slow)
+    4 lzma: lzma format (high compression,very slow)
+    5 lz4: LZ4 format (low compression,extrem. fast)
+    6 lz4hc: LZ4HC format (moderate compression,fast)
+.fi
+
+.TP
+\fB\-\-dumpjson\fR \fI[-,0,1,2,'file.json']\fR
+Export all settings, including the volume data, in the JSON/JData
+(https://neurojson.org) format for easy sharing; the output can be reused
+with \-f. If followed by nothing or '\-', mcx prints the JSON to the console;
+if followed by a file name, it writes to that file. By default, the settings
+are printed after pre-processing; '\-\-dumpjson 2' prints the raw inputs before
+pre-processing.
+
+.SS User IO options
+.TP
+\fB\-h/\-\-help\fR
+Print the built-in help of all supported command line flags.
+
+.TP
+\fB\-y/\-\-lang\fR \fI[zh_CN,...]\fR
+Select the language of the printed messages; followed by nothing to list the
+supported languages.
+
+.TP
+\fB\-v/\-\-version\fR
+Print the MCX revision number and version.
+
+.TP
+\fB\-l/\-\-log\fR
+Print the messages to a log file, session.log, instead of the console.
+
+.TP
+\fB\-i/\-\-interactive\fR
+Interactive mode: type in the domain settings in an item-by-item prompt
+(legacy .inp format). It can not be used together with \-f.
+
+.SS Debug options
+.TP
+\fB\-D/\-\-debug\fR \fI[0|int|RMPT]\fR
+Print debug information, using an integer or a string combining the
+following flags (case insensitive)
+.nf
+    1 R  debug RNG
+    2 M  store photon trajectory info (saved in session_traj.jdt)
+    4 P  print progress bar
+    8 T  save trajectory data only, disable flux/detp
+.fi
+
+.SS Additional options
+.TP
+\fB\-\-root\fR \fI[''|string]\fR
+Full path to the folder storing the input files.
+
+.TP
+\fB\-\-gscatter\fR \fI[1e9|int]\fR
+After a photon completes the specified number of scattering events, mcx
+ignores the anisotropy g and only performs isotropic scattering for speed.
+
+.TP
+\fB\-\-srcid\fR \fI[0|-1,0,1,2,..]\fR
+\-1 simulates multiple sources separately; 0 simulates all sources together;
+a positive integer runs a single source.
+
+.TP
+\fB\-\-internalsrc\fR \fI[0|1]\fR
+Set to 1 to skip the entry search to speed up the launch when the source is
+inside the domain.
+
+.TP
+\fB\-\-trajstokes\fR \fI[0|1]\fR
+Set to 1 to save the Stokes vector IQUV in the trajectory data (polarized
+simulations).
+
+.TP
+\fB\-\-maxvoidstep\fR \fI[1000|int]\fR
+The maximum distance (in voxel unit) a photon can travel before entering the
+domain, if launched outside (i.e. a widefield source).
+
+.TP
+\fB\-\-maxjumpdebug\fR \fI[10000000|int]\fR
+When trajectories are requested (i.e. \-D M), the maximum number of positions
+stored.
+
+.SH FILES
+.TP
+\fBsession.jnii\fR, \fBsession.bnii\fR, \fBsession.mc2\fR, \fBsession.nii\fR
+The volumetric output, depending on \-F.
+.TP
+\fBsession_detp.jdt\fR
+Detected photon data (\-d 1) in JSON/JData; saved as session_detp.jdb (binary
+JData) with \-F bnii, or as session.mch with the other formats.
+.TP
+\fBsession_traj.jdt\fR
+Photon trajectory data (\-D M); saved as session_traj.jdb with \-F bnii, or as
+session.mct with the other formats.
+.TP
+\fBsession.log\fR
+The log file (\-l).
+
+.SH EXAMPLES
+\fBListing supported GPUs\fR
+.nf
+    mcx \-L
+.fi
+
+\fBListing built-in benchmarks\fR
+.nf
+    mcx \-Q
+.fi
+
+\fBRunning a built-in benchmark\fR
+.nf
+    mcx \-Q cube60
+.fi
+
+\fBDump JSON configuration file for the built-in benchmark\fR
+.nf
+    mcx \-Q cube60planar \-\-dumpjson
+.fi
+
+\fBRunning mcx using autopilot mode with a progress bar\fR
+.nf
+    mcx \-A 1 \-n 1e7 \-\-bench cube60b \-G 1 \-D P
+.fi
+
+\fBUsing multiple devices (1st,2nd and 4th GPUs) with equal load\fR
+.nf
+    mcx \-Q cube60b \-n 1e7 \-G 1101 \-W 10,10,10
+.fi
+
+\fBUsing JSON-based inline domain definition\fR
+.nf
+    mcx \-f input.json \-P '{"Shapes":[{"ZLayers":[[1,10,1],[11,30,2],[31,60,3]]}]}'
+.fi
+
+\fBUsing inline JSON setting modifier\fR
+.nf
+    mcx \-f input.json \-j '{"Optode":{"Source":{"Type":"isotropic"}}}'
+.fi
+
+\fBSaving the fluence in the binary JNIfTI format\fR
+.nf
+    mcx \-Q cube60 \-F bnii
+.fi
+
+\fBUse \-N/\-\-net to browse community-contributed mcx simulations at https://neurojson.io\fR
+.nf
+    mcx \-N
+.fi
+
+\fBRun user-shared mcx simulations, see full list at https://neurojson.org/db/mcx\fR
+.nf
+    mcx \-N aircube60
+.fi
+
+\fBPrint in simplified Chinese using \-y/\-\-lang\fR
+.nf
+    mcx \-y zh_CN \-Q cube60
+.fi
+
+\fBUse \-f \- to read piped input file modified by shell text processing utilities\fR
+.nf
+    mcx \-Q cube60 \-\-dumpjson | sed \-e 's/pencil/cone/g' | mcx \-f \-
+.fi
+
+\fBDownload/modify simulations from NeuroJSON.io and run with mcx \-f\fR
+.nf
+    curl \-s \-X GET https://neurojson.io:7777/mcx/aircube60 | jq '.Forward.Dt = 1e-9' | mcx \-f
+.fi
+
+.SH SEE ALSO
+mcxcl(1), mmc(1), mcxstudio(1)
+.SH AUTHOR
+Qianqian Fang (q.fang@neu.edu)

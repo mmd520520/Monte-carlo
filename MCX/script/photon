@@ -1,0 +1,263 @@
+#!/usr/bin/perl
+###############################################################################
+#
+# photon: one command-line launcher for MCX, MCX-CL and MMC
+#
+# Author:  Qianqian Fang <q.fang at neu.edu>
+# License: GPLv3
+# Version: 1.0 (v2026)
+# Github:  https://github.com/fangq/mcx/
+#
+###############################################################################
+#
+# photon takes the command line of mcx, mcxcl or mmc, decides which of the
+# three simulators the input is for, and runs it with the same options.
+#
+#   mmc    when the input describes a tetrahedral mesh: a JSON file with a
+#          "Mesh" object or mesh data (MeshNode/MeshID) in "Shapes", an .inp
+#          file in mmc's layout, an mmc-only option (-c, -M, --basisorder ...),
+#          or one of mmc's built-in benchmarks
+#   mcx    for a voxel input when mcx finds an NVIDIA (CUDA) device
+#   mcxcl  for a voxel input otherwise (any OpenCL device, the CPU included),
+#          or when an OpenCL-only option (-J, --kernel ...) is given
+#
+# --mcx, --mcxcl or --mmc (also -mcx, -mcxcl, -mmc) picks one explicitly.
+#
+# Each simulator is looked for in: the environment variable PHOTON_MCX,
+# PHOTON_MCXCL or PHOTON_MMC (a full path); the folder photon is in; the
+# MCX Suite / release layouts beside it (../mcx/bin, ../mcxcl/bin, ../mmc/bin,
+# ../../<name>/bin); the PATH; ~/bin; /usr/libexec and /usr/local/bin.
+#
+# Dependencies: Perl 5.14 or newer (JSON::PP is part of it).  On Windows, use
+# the Perl of MSYS2, Cygwin or Git for Windows, or Strawberry Perl.
+#
+###############################################################################
+
+use strict;
+use warnings;
+use File::Basename qw(dirname);
+use File::Spec;
+use Cwd qw(abs_path);
+use JSON::PP;
+
+my $VERSION = '1.0 (v2026)';
+my @SIMULATORS = ('mcx', 'mcxcl', 'mmc');
+
+# options only mmc has, with or without a value; and options only mcxcl has
+my %MMCONLY = map { $_ => 1 } ('-c', '--compute', '-C', '--basisorder', '-M', '--method', '--gridsize', '--mc');
+my %OPENCLONLY = map { $_ => 1 } ('-J', '--compileopt', '-o', '--optlevel', '--showkernel');
+
+my $ISWIN = ($^O =~ /MSWin32|msys|cygwin/i);
+my $selfdir = dirname(abs_path($0));
+
+#------------------------------------------------------------------------------
+# photon's own options, removed before the simulator sees the command line
+
+my ($forced, $which, $quiet) = ('', 0, 0);
+my @args;
+
+foreach my $opt (@ARGV) {
+    if ($opt =~ /^--?(mcx|mcxcl|mmc)$/) {
+        $forced = $1;
+    } elsif ($opt eq '--which') {
+        $which = 1;
+    } elsif ($opt eq '--quiet-photon' || $opt eq '--photon-quiet') {
+        $quiet = 1;
+    } elsif ($opt eq '--info' || $opt eq '--photon-help') {
+        printhelp();
+    } else {
+        push(@args, $opt);
+    }
+}
+printhelp() if (@args == 0 && !$which && !$forced);
+
+#------------------------------------------------------------------------------
+# locate the simulators
+
+my %exe = map { $_ => findexe($_) } @SIMULATORS;
+
+sub findexe {
+    my ($name) = @_;
+    my $env = $ENV{'PHOTON_' . uc($name)};
+    return $env if (defined $env && -x $env);
+    my @names = $ISWIN ? ("$name.exe", $name) : ($name);
+    my @dirs = ($selfdir,
+                File::Spec->catdir($selfdir, '..', $name, 'bin'),
+                File::Spec->catdir($selfdir, '..', '..', $name, 'bin'),
+                File::Spec->catdir($selfdir, '..', 'MCXSuite', $name, 'bin'),
+                File::Spec->catdir($selfdir, 'MCXSuite', $name, 'bin'),
+                File::Spec->path(),
+                File::Spec->catdir($ENV{'HOME'} || '', 'bin'),
+                '/usr/libexec', '/usr/local/bin');
+    foreach my $dir (@dirs) {
+        next unless (defined $dir && $dir ne '');
+        foreach my $n (@names) {
+            my $path = File::Spec->catfile($dir, $n);
+            return abs_path($path) if (-f $path && -x $path);
+        }
+    }
+    return '';
+}
+
+#------------------------------------------------------------------------------
+# decide which simulator the command line is for
+
+my ($sim, $why) = ('', '');
+
+if ($forced ne '') {
+    ($sim, $why) = ($forced, "--$forced was given");
+} else {
+    ($sim, $why) = guess(@args);
+}
+
+if ($sim eq '') {    # a voxel input: mcx on an NVIDIA GPU, else mcxcl
+    if ($exe{'mcx'} ne '' && hascuda($exe{'mcx'})) {
+        ($sim, $why) = ('mcx', 'voxel input, and mcx found a CUDA device');
+    } elsif ($exe{'mcxcl'} ne '') {
+        ($sim, $why) = ('mcxcl', $exe{'mcx'} eq '' ? 'voxel input, mcx is not installed'
+                                                   : 'voxel input, and mcx found no CUDA device');
+    } else {
+        ($sim, $why) = ('mcx', 'voxel input');
+    }
+}
+
+if ($which) {
+    print "$sim\t" . ($exe{$sim} || 'not found') . "\t($why)\n";
+    exit($exe{$sim} eq '' ? 1 : 0);
+}
+
+if ($exe{$sim} eq '') {
+    die "photon: $sim is needed ($why) but was not found; set PHOTON_" . uc($sim) .
+        " to its path or put it on the PATH\n";
+}
+
+print STDERR "photon $VERSION: running $sim ($exe{$sim}) -- $why\n" unless $quiet;
+
+# replace this process, so that the simulator's exit code is photon's
+exec { $exe{$sim} } $exe{$sim}, @args;
+die "photon: failed to run $exe{$sim}: $!\n";
+
+#------------------------------------------------------------------------------
+
+sub guess {
+    my @a = @_;
+    my $simulator = '';
+    my $reason = '';
+    for (my $i = 0; $i < @a; $i++) {
+        my $opt = $a[$i];
+        if ($opt eq '-f' || $opt eq '--input') {
+            my ($s, $r) = inputkind($a[$i + 1]);
+            return ($s, $r) if ($s ne '');
+        } elsif ($opt eq '--bench' && defined $a[$i + 1] && $a[$i + 1] !~ /^-/) {
+            my ($s, $r) = benchkind($a[$i + 1]);
+            return ($s, $r) if ($s ne '');
+        } elsif ($opt eq '--json' && defined $a[$i + 1]) {
+            my $d = decodejson($a[$i + 1]);
+            return ('mmc', 'the --json fragment has mesh data') if (ismesh($d));
+        } elsif ($MMCONLY{$opt}) {
+            return ('mmc', "$opt is an mmc option");
+        } elsif ($OPENCLONLY{$opt}) {
+            ($simulator, $reason) = ('mcxcl', "$opt is an mcxcl option");
+        }
+    }
+    return ($simulator, $reason);
+}
+
+# a JSON input is for mmc when it carries a mesh; an .inp file when it has
+# mmc's layout (a mesh file stub on line 6, or a lone integer on line 7)
+sub inputkind {
+    my ($file) = @_;
+    return ('', '') unless (defined $file);
+    return ('mmc', "$file names a .mmc/mesh input") if ($file =~ /\.(mmc|mmcp)$/i);
+    return ('', '') unless (-f $file);
+    if ($file =~ /\.json$/i) {
+        open(my $fh, '<', $file) or return ('', '');
+        my $text = do { local $/; <$fh> };
+        close($fh);
+        my $d = decodejson($text);
+        return ('mmc', "$file describes a tetrahedral mesh") if (ismesh($d));
+        return ('', '');
+    }
+    if ($file =~ /\.inp$/i) {
+        open(my $fh, '<', $file) or return ('', '');
+        my @lines = <$fh>;
+        close($fh);
+        return ('mmc', "$file is an mmc .inp file") if (@lines > 6 && $lines[5] =~ /^[^\.\s]+\s/);
+        return ('mmc', "$file is an mmc .inp file") if (@lines > 7 && $lines[6] =~ /^\s*\d+\s*(#.*)?$/);
+    }
+    return ('', '');
+}
+
+sub decodejson {
+    my ($text) = @_;
+    my $d;
+    eval { $d = JSON::PP->new->loose(1)->relaxed(1)->allow_nonref(1)->decode($text); };
+    return $d;
+}
+
+sub ismesh {
+    my ($d) = @_;
+    return 0 unless (ref($d) eq 'HASH');
+    foreach my $key ('Mesh', 'Shapes') {
+        my $m = $d->{$key};
+        next unless (ref($m) eq 'HASH');
+        return 1 if (exists $m->{'MeshID'} || exists $m->{'MeshNode'} || exists $m->{'MeshElem'});
+    }
+    return 0;
+}
+
+# a built-in benchmark of mcx or mcxcl is a voxel input (the GPU then decides
+# between them); one only mmc lists is a mesh input
+sub benchkind {
+    my ($name) = @_;
+    foreach my $s ('mcx', 'mcxcl', 'mmc') {
+        next if ($exe{$s} eq '');
+        my @list = map { s/\e\[[0-9;]*m//g; s/^\s+|\s+$//g; $_ } `"$exe{$s}" --bench 2>&1`;
+        next unless (grep { $_ eq $name } @list);
+        return ($s eq 'mmc') ? ('mmc', "$name is a built-in benchmark of mmc") : ('', '');
+    }
+    return ('', '');
+}
+
+sub hascuda {
+    my ($path) = @_;
+    my $out = `"$path" -L 2>&1`;
+    return ($out =~ /Compute Capability|Global Memory/i) ? 1 : 0;
+}
+
+sub printhelp {
+    my $me = File::Basename::basename($0);
+    print <<"EOF";
+==============================================================================
+photon $VERSION - one launcher for MCX, MCX-CL and MMC
+author: Qianqian Fang <q.fang at neu.edu>   web: https://mcx.space
+==============================================================================
+
+Format: $me [--mcx|--mcxcl|--mmc] [--which] <mcx/mcxcl/mmc options>
+
+photon passes all options to the simulator it picks:
+
+  mmc     the input describes a tetrahedral mesh -- a JSON file with a "Mesh"
+          object, or mesh data (MeshNode/MeshID) in "Shapes"; an .inp file in
+          mmc's layout; an mmc-only option (-c, -C, -M, --basisorder,
+          --method, --compute ...); or a built-in benchmark of mmc
+  mcx     a voxel input, and mcx -L finds an NVIDIA (CUDA) device
+  mcxcl   a voxel input otherwise (any OpenCL device, the CPU included), or an
+          OpenCL-only option (-J, --compileopt, -o, --showkernel ...)
+
+photon's own options:
+  --mcx, --mcxcl, --mmc   run that simulator, whatever the input
+  --which                 print the simulator photon would run, and why
+  --photon-quiet          do not print photon's one-line note
+  --info                  this help (--help is passed to the simulator)
+
+Each simulator is found through PHOTON_MCX, PHOTON_MCXCL or PHOTON_MMC (a full
+path), photon's own folder, the MCX Suite layout beside it, the PATH, ~/bin,
+/usr/libexec or /usr/local/bin.  Found now:
+EOF
+    foreach my $s (@SIMULATORS) {
+        my $p = findexe($s);
+        printf("  %-6s %s\n", $s, $p eq '' ? '(not found)' : $p);
+    }
+    exit 0;
+}

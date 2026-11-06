@@ -1,0 +1,69 @@
+name: Build+Upload MacOS Python Wheels
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - master
+
+
+jobs:
+  build_macos_wheels:
+    name: Build the macOS noarch wheel
+    # macOS has no CUDA, so pmcx ships only its python utilities there (pmcxcl borrows them);
+    # pip falls back to this py3-none-any wheel on any platform without a native pmcx wheel
+    runs-on: macos-15
+    outputs:
+      perform_pypi_upload: ${{ steps.perform_pypi_upload_check.outputs.perform_pypi_upload }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Build Wheel
+        run: |
+          cd pmcx/
+          python -m pip install --upgrade pip
+          pip install wheel setuptools
+          PMCX_PURE_PYTHON=1 pip wheel . --no-deps -w ../dist/
+          ls ../dist/
+          cd ../
+      - name: Check the wheel is noarch and the utilities import
+        run: |
+          ls dist/pmcx-*-py3-none-any.whl
+          [ $(ls dist/ | wc -l) -eq 1 ] || { echo "expected one noarch wheel"; exit 1; }
+          pip install numpy dist/pmcx-*-py3-none-any.whl
+          (cd /tmp && python -c "import pmcx; print(pmcx.detweight, pmcx.loadmc2)")
+      - name: Check If the Build Version Exists on PyPI
+        id: perform_pypi_upload_check
+        run: |
+          bash $GITHUB_WORKSPACE/.github/check-pypi-upload.sh
+      - name: Prepare Wheels for Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-wheels-noarch
+          path: dist/
+
+  upload_macos_wheels:
+    needs: build_macos_wheels
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'fangq' && github.actor == 'fangq' && needs.build_macos_wheels.outputs.perform_pypi_upload == 1 && github.event_name != 'pull_request'}}
+    steps:
+      - name: Download Wheels from Build Job
+        uses: actions/download-artifact@v4
+        with:
+          pattern: macos-wheels-*
+          merge-multiple: true
+          path: dist/
+      - name: Upload packages to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          verify_metadata: false
+          verbose: true
+          skip_existing: true

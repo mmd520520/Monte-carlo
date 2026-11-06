@@ -1,0 +1,1043 @@
+{ mcxstudio2 - finding the simulators, asking them what they can do, and
+  running one.
+
+  No LCL in here.  Everything is either a pure function over text -- parse a
+  device listing, find a percentage in a progress bar -- or a thread around a
+  TProcess, so all of it can be tested without a display.
+
+  There is one asynchronous path, and it is a plain TProcess read from a
+  TThread.  The obvious alternative, TAsyncProcess.OnReadData, hooks the
+  widget set through AddPipeEventHandler, which is implemented for gtk, qt and
+  win32 but not for cocoa -- the base returns nil (intfbaselcl.inc:35).  That
+  is the whole reason the old GUI carries a second, DARWIN-only busy-poll
+  loop beside its event-driven one.  Output.Read blocks, so a thread
+  needs neither: no polling, no Application.ProcessMessages, no Sleep. }
+unit mcxrun;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, Process, mcxdoc;
+
+type
+  { What a backend reported about one device.  The parser keeps the whole
+    block as well, because the interesting fields differ between CUDA, OpenCL
+    and the ROCm port, and a field none of them has today is not worth a
+    record member. }
+  TMcxDevice = record
+    Id: Integer;
+    Name: string;
+    AutoThread: Integer;
+    AutoBlock: Integer;
+    Detail: string;
+  end;
+  TMcxDevices = array of TMcxDevice;
+
+  TMcxLineEvent = procedure(Sender: TObject; const ALine: string) of object;
+  TMcxProgressEvent = procedure(Sender: TObject; APercent: Integer) of object;
+  TMcxDoneEvent = procedure(Sender: TObject; AExitCode: Integer) of object;
+
+  { Runs one simulation and reports what it says.
+
+    The events arrive on the main thread -- they are delivered through
+    TThread.Queue -- so a handler may touch the interface directly. }
+  TMcxRunner = class(TThread)
+  private
+    FExe: string;
+    FArgs: TStringList;
+    FDir: string;
+    FProc: TProcess;
+    FBuf: string;
+    FEmit: string;
+    FPercent: Integer;
+    FLastPercent: Integer;
+    FExitCode: Integer;
+    FOnLine: TMcxLineEvent;
+    FOnProgress: TMcxProgressEvent;
+    FOnDone: TMcxDoneEvent;
+    procedure Feed(const AChunk: string);
+    procedure Flush;
+    procedure SayLine;
+    procedure SayProgress;
+    procedure SayDone;
+  protected
+    procedure Execute; override;
+  public
+    constructor Create(const AExe: string; AArgs: TStrings; const ADir: string);
+    destructor Destroy; override;
+    { Asks the simulation to stop.  Terminate on its own only ends the read
+      loop; the process has to be told separately or it runs to completion
+      with nobody listening. }
+    procedure Stop;
+    property OnLine: TMcxLineEvent read FOnLine write FOnLine;
+    property OnProgress: TMcxProgressEvent read FOnProgress write FOnProgress;
+    property OnDone: TMcxDoneEvent read FOnDone write FOnDone;
+  end;
+
+{ The executable for a backend, or '' if it is not installed.  Looks beside
+  mcxstudio2 first, then in the layout an MCXStudio release unpacks to, then
+  on PATH. }
+type
+  { What the three choices add up to.  The person picks a processor, a kind
+    of domain and a kind of medium; which program runs is a consequence, not
+    a fourth question. }
+  TMcxPlan = record
+    Backend: TMcxBackend;
+    { mmc's -c: 'opencl', 'cuda', 'sse' or 'optix'.  Empty for mcx, which has
+      only one. }
+    Compute: string;
+    { A low-scattering medium on a voxel grid has to be run as split-voxel,
+      or the curved boundaries it is about are lost to the staircase. }
+    Svmc: Boolean;
+    { False when the combination has no solver at all. }
+    Ok: Boolean;
+    Why: string;
+    { What to call it in the status bar. }
+    Name: string;
+  end;
+
+{ The solver for a combination, and why there is none when there is none. }
+function McxPlanFor(const AProcessor, ADomain, AMedia: string): TMcxPlan;
+
+{ The plan for a simulator picked in the Compute section (ChoiceSimulator)
+  rather than worked out from the tiles: that program runs, on the domain the
+  tiles describe, or the plan says why it cannot. }
+function McxForcedPlan(const ASimulator, ADomain, AMedia: string): TMcxPlan;
+
+{ The words of a line of options, split at spaces outside double quotes. }
+procedure McxSplitArgs(const AText: string; AList: TStrings);
+
+{ The folder the program is in, with a trailing delimiter -- for a macOS
+  application bundle, the folder the bundle is in. }
+function McxProgramDir: string;
+
+function McxFindExe(ABackend: TMcxBackend): string;
+
+{ The name the run document stores a backend under, which is also what mcx's
+  own examples call it. }
+function McxBackendName(ABackend: TMcxBackend): string;
+
+{ The name a backend's binary goes by.  The ROCm port renamed nothing, so HIP
+  and CUDA are both "mcx" (src/Makefile:25) -- which is why a build cannot be
+  told apart by its file name and has to be asked with -L. }
+function McxExeName(ABackend: TMcxBackend): string;
+
+var
+  { --user: sessions are kept under the user's home folder rather than next
+    to the program, as the first Studio's --user did and as the Windows
+    installer's shortcuts ask for -- the install folder is not the user's
+    to write in. }
+  McxUseUserFolder: Boolean = False;
+
+{ Where a session that has no writable home of its own is kept:
+  <root>\MCXOutput\<simulator>sessions\<session>, with root the user's home
+  under --user, else the program's folder -- or home anyway when that cannot
+  be written.  The same layout the first Studio used, so a user's earlier
+  runs are found where they were.  Created if it is not there. }
+function McxWorkFolder(ABackend: TMcxBackend; const ASession: string): string;
+
+{ Runs a backend with the given arguments and returns everything it printed.
+  Blocking, for the short questions -- what devices are there, what
+  benchmarks are there, what is this benchmark -- that happen on demand and
+  answer at once.  A simulation goes through TMcxRunner instead. }
+function McxAsk(const AExe: string; const AArgs: array of string;
+  out AText: string): Boolean;
+
+{ Runs <exe> -L and returns what it printed. }
+function McxQueryDevices(const AExe: string; out AText: string): Boolean;
+
+{ The names of mcx's built-in benchmarks, from -Q with no name. }
+function McxBenchmarks(const AExe: string; AList: TStrings): Boolean;
+
+{ The input JSON of one benchmark, from -Q <name> --dumpjson 2, which prints
+  the simulation and exits before any GPU work. }
+function McxBenchmarkJSON(const AExe, AName: string; out AJSON: string): Boolean;
+
+{ The devices in a -L listing.
+
+  Generic on purpose: every line is Key<tab>Value, a "Device n of m" line
+  starts a new block, and anything else is kept as detail.  The old GUI
+  sscanf'd 'Device %d of %d:%s' and read nothing else, so a backend that grew
+  a field grew it invisibly. }
+function McxParseDevices(const AText: string): TMcxDevices;
+
+{ Text as it would look on a terminal: ANSI colour sequences removed and
+  backspaces applied.  mcx draws its progress bar by writing a line, backing
+  over it with as many \b as the terminal is wide, and writing it again
+  (mcx_utils.c:5031), so without this the log grows by a screenful a tick. }
+function McxPlain(const AText: string): string;
+
+{ Takes whatever has arrived so far: moves the complete lines into ALines and
+  leaves the unfinished tail in ABuf, collapsed as a terminal would show it.
+
+  The tail is the point.  A progress bar never ends in a newline -- it is
+  overwritten in place -- so a reader that only looked at finished lines would
+  see no progress at all until the run was over. }
+procedure McxSplitOutput(var ABuf: string; ALines: TStrings);
+
+{ The percentage in a progress bar, if ATail ends in one.
+
+  Scans back from the last '%' over digits and spaces and insists on a ']'.
+  The ']' is the whole test: mcx prints "] %3d%%" (mcx_utils.c:5043) and also
+  prints an absorption fraction as "...: %5.5f%%" (mcx_core.cu:4584), and
+  nothing else distinguishes them. }
+function McxProgressOf(const ATail: string; out APercent: Integer): Boolean;
+
+{ The percentage in one of vkmmc's batch lines, "  batch 2: 305843 photons
+  (830131/1000000)": done over total, in the brackets that end the line.
+  vkmmc has no progress bar; each batch it launches is a line of its own. }
+function McxBatchProgressOf(const ALine: string; out APercent: Integer): Boolean;
+
+{ The command line for a simulation.  Short, because the JSON carries the
+  simulation -- which is why the old GUI's 230 lines of flag assembly are not
+  here.
+
+  A real file rather than -f -: mcx's stdin detection is positional and
+  triggers on the next argument starting with '-' (mcx_utils.c:5202), a real
+  path makes the logged command copy-pasteable, and relative paths inside the
+  JSON need a working directory to resolve against. }
+function McxBuildArgs(const AInputFile: string; ADoc, ARun: TMcxDoc): TStringList;
+
+{ What to pass to -D, given whatever the file has in Session.DebugFlag.
+
+  Always asks for the progress bar, because that is how the window knows how
+  far along a run is -- added to what the file asked for rather than instead
+  of it, since -D replaces the JSON's value outright.
+
+  A file may hold the flags as letters or as a bit mask, and the two
+  simulators number the bits differently, so a mask is kept a mask and the
+  right progress bit is set in it. }
+function McxDebugArg(const AFlags: string; ABackend: TMcxBackend): string;
+
+{ The same thing as one string, for the Command pane and for a bug report. }
+function McxCommandLine(const AExe, AInputFile: string;
+  ADoc, ARun: TMcxDoc): string;
+
+implementation
+
+const
+  ExeNames: array[TMcxBackend] of string = ('mcx', 'mcxcl', 'mmc', 'mcx', 'vkmmc', 'umcx');
+
+function McxPlanFor(const AProcessor, ADomain, AMedia: string): TMcxPlan;
+begin
+  Result.Backend := mbMCX;
+  Result.Compute := '';
+  Result.Svmc := False;
+  Result.Ok := True;
+  Result.Why := '';
+
+  if (ADomain = 'mesh') or (ADomain = 'surface') then
+  begin
+    { Both mesh kinds are MMC's; they differ in how the rays are traced. }
+    Result.Backend := mbMMC;
+    if ADomain = 'surface' then
+    begin
+      { OptiX traces against the triangles themselves rather than walking a
+        tetrahedron at a time, and OptiX is NVIDIA's. }
+      Result.Compute := 'optix';
+      Result.Name := 'MMC, OptiX ray tracing';
+      if AProcessor <> 'nvidia' then
+      begin
+        Result.Ok := False;
+        Result.Why := 'A surface mesh is traced with OptiX, which needs an ' +
+          'NVIDIA card.';
+      end;
+    end
+    else if AProcessor = 'nvidia' then
+    begin
+      Result.Compute := 'cuda';
+      Result.Name := 'MMC on CUDA';
+    end
+    else if AProcessor = 'cpu' then
+    begin
+      Result.Compute := 'sse';
+      Result.Name := 'MMC on the CPU';
+    end
+    else
+    begin
+      Result.Compute := 'opencl';
+      Result.Name := 'MMC on OpenCL';
+    end;
+    Exit;
+  end;
+
+  { Shapes in a low-scattering medium are traced as the surfaces they are:
+    vkmmc triangulates them and follows the rays against the triangles, on
+    any card with Vulkan, so a curved boundary is curved rather than the
+    split-voxel approximation of one.  Not on the processor, where Vulkan is
+    rarely there to be had. }
+  if (ADomain = 'shapes') and (AMedia = 'lowscatter') and (AProcessor <> 'cpu') then
+  begin
+    Result.Backend := mbVKMMC;
+    Result.Name := 'VKMMC on Vulkan';
+    Exit;
+  end;
+
+  { Everything else is a voxel grid, whether the voxels come from a file or
+    from shapes rasterised into one.  An AMD card runs MCX-CL: the ROCm build
+    of mcx is not part of the release packages. }
+  Result.Svmc := AMedia = 'lowscatter';
+  if AProcessor = 'nvidia' then
+  begin
+    Result.Backend := mbMCX;
+    Result.Name := 'MCX on CUDA';
+  end
+  else
+  begin
+    Result.Backend := mbMCXCL;
+    if AProcessor = 'cpu' then Result.Name := 'MCX-CL on the CPU'
+    else Result.Name := 'MCX-CL on OpenCL';
+  end;
+  if Result.Svmc then Result.Name := Result.Name + ', split-voxel';
+end;
+
+function McxForcedPlan(const ASimulator, ADomain, AMedia: string): TMcxPlan;
+var
+  IsMesh: Boolean;
+begin
+  Result.Backend := mbMCX;
+  Result.Compute := '';
+  Result.Svmc := False;
+  Result.Ok := True;
+  Result.Why := '';
+  IsMesh := (ADomain = 'mesh') or (ADomain = 'surface');
+
+  if Copy(ASimulator, 1, 4) = 'mmc-' then
+  begin
+    Result.Backend := mbMMC;
+    Result.Compute := Copy(ASimulator, 5, MaxInt);
+    if Result.Compute = 'cuda' then Result.Name := 'MMC on CUDA'
+    else if Result.Compute = 'opencl' then Result.Name := 'MMC on OpenCL'
+    else if Result.Compute = 'sse' then Result.Name := 'MMC on the CPU'
+    else Result.Name := 'MMC, OptiX ray tracing';
+    if not IsMesh then
+    begin
+      Result.Ok := False;
+      Result.Why := 'MMC simulates a mesh: pick a tetrahedral or surface ' +
+        'mesh, or another simulator.';
+    end
+    { The surface tile is the triangles alone, and only OptiX traces those;
+      a tetrahedral mesh is walked an element at a time, which OptiX does not. }
+    else if (ADomain = 'surface') <> (Result.Compute = 'optix') then
+    begin
+      Result.Ok := False;
+      if ADomain = 'surface' then
+        Result.Why := 'A surface mesh is traced with OptiX only.'
+      else
+        Result.Why := 'OptiX traces a surface mesh, not a tetrahedral one.';
+    end;
+  end
+  else if ASimulator = 'vkmmc' then
+  begin
+    Result.Backend := mbVKMMC;
+    Result.Name := 'VKMMC on Vulkan';
+    if ADomain <> 'shapes' then
+    begin
+      Result.Ok := False;
+      Result.Why := 'VKMMC traces primitive shapes as surfaces: pick ' +
+        'Primitive shapes, or another simulator.';
+    end;
+  end
+  else
+  begin
+    { The voxel simulators.  MCX and MCX-CL run a low-scattering medium as
+      split-voxel, as the tiles do; uMCX has no split-voxel mode. }
+    if ASimulator = 'mcxcl' then
+    begin
+      Result.Backend := mbMCXCL;
+      Result.Name := 'MCX-CL on OpenCL';
+    end
+    else if ASimulator = 'umcx' then
+    begin
+      Result.Backend := mbUMCX;
+      Result.Name := 'uMCX';
+    end
+    else
+      Result.Name := 'MCX on CUDA';
+    Result.Svmc := (AMedia = 'lowscatter') and (Result.Backend <> mbUMCX);
+    if Result.Svmc then Result.Name := Result.Name + ', split-voxel';
+    if IsMesh then
+    begin
+      Result.Ok := False;
+      Result.Why := Result.Name + ' simulates a voxel grid: pick Voxel grid ' +
+        'or Primitive shapes, or MMC.';
+    end;
+  end;
+end;
+
+procedure McxSplitArgs(const AText: string; AList: TStrings);
+var
+  i: Integer;
+  Word: string;
+  InQuote, HasWord: Boolean;
+begin
+  Word := '';
+  InQuote := False;
+  HasWord := False;
+  for i := 1 to Length(AText) do
+    if AText[i] = '"' then
+    begin
+      InQuote := not InQuote;
+      HasWord := True;
+    end
+    else if (AText[i] in [' ', #9]) and not InQuote then
+    begin
+      if HasWord then AList.Add(Word);
+      Word := '';
+      HasWord := False;
+    end
+    else
+    begin
+      Word := Word + AText[i];
+      HasWord := True;
+    end;
+  if HasWord then AList.Add(Word);
+end;
+
+function McxBackendName(ABackend: TMcxBackend): string;
+const
+  Names: array[TMcxBackend] of string = ('mcx', 'mcxcl', 'mmc', 'mcx-hip', 'vkmmc', 'umcx');
+begin
+  Result := Names[ABackend];
+end;
+
+function McxExeName(ABackend: TMcxBackend): string;
+begin
+  Result := ExeNames[ABackend];
+  {$IFDEF WINDOWS}
+  Result := Result + '.exe';
+  {$ENDIF}
+end;
+
+{ The first directory in APaths that holds AName, or ''.
+
+  Written here rather than taken from LazUtils' SearchFileInPath, so that this
+  unit needs nothing outside the FPC runtime -- which is what lets its tests
+  run with no widget set and no display. }
+function FindInPath(const AName, APaths: string): string;
+var
+  L: TStringList;
+  i: Integer;
+  Cand: string;
+begin
+  Result := '';
+  L := TStringList.Create;
+  try
+    L.Delimiter := PathSeparator;
+    L.StrictDelimiter := True;
+    L.DelimitedText := APaths;
+    for i := 0 to L.Count - 1 do
+    begin
+      if Trim(L[i]) = '' then Continue;
+      Cand := IncludeTrailingPathDelimiter(Trim(L[i])) + AName;
+      if FileExists(Cand) then Exit(ExpandFileName(Cand));
+    end;
+  finally
+    L.Free;
+  end;
+end;
+
+{ The executable of MCXStudio.app sits in MCXStudio.app/Contents/MacOS, three
+  levels below where the package put the bundle; the simulators, the manual
+  and the output folder are beside the bundle, and nothing may be written
+  inside it (that would break its signature). }
+function McxProgramDir: string;
+const
+  Bundle = '.app' + PathDelim + 'Contents' + PathDelim + 'MacOS' + PathDelim;
+var
+  Dir: string;
+  P: Integer;
+begin
+  Dir := IncludeTrailingPathDelimiter(ExtractFilePath(ExpandFileName(ParamStr(0))));
+  P := Pos(LowerCase(Bundle), LowerCase(Dir));
+  if (P > 0) and (P + Length(Bundle) - 1 = Length(Dir)) then
+    Dir := IncludeTrailingPathDelimiter(ExtractFilePath(Copy(Dir, 1, P + 3)));
+  Result := Dir;
+end;
+
+function McxWorkFolder(ABackend: TMcxBackend; const ASession: string): string;
+var
+  Root, Session: string;
+begin
+  Session := Trim(ASession);
+  if Session = '' then Session := 'default';
+  Root := '';
+  if not McxUseUserFolder then
+  begin
+    Root := McxProgramDir + 'MCXOutput';
+    if not ForceDirectories(Root) then Root := '';
+  end;
+  if Root = '' then
+    Root := IncludeTrailingPathDelimiter(GetUserDir) + 'MCXOutput';
+  Result := IncludeTrailingPathDelimiter(Root) + McxExeName(ABackend) +
+    'sessions' + PathDelim + Session;
+  ForceDirectories(Result);
+end;
+
+function McxFindExe(ABackend: TMcxBackend): string;
+var
+  Base, Name, Paths: string;
+begin
+  Name := McxExeName(ABackend);
+  Base := McxProgramDir;
+
+  { The first Studio's order (mcxgui.pas SearchForExe), so an install that
+    worked with it works with this one: the MCXSuite tree the Windows
+    installer and the MCXStudio packages lay out, then beside the program,
+    then ~/MCXStudio, then <program dir>/<simulator>/bin.
+
+    After those, the source trees a developer builds in -- mcxstudio2 lives
+    inside the mcx checkout, so from its bin/ the mcx, mcxcl and mmc
+    checkouts cloned next to it are two and three levels up -- and last
+    whatever PATH says. }
+  Paths :=
+    Base + 'MCXSuite' + PathDelim + ExeNames[ABackend] + PathDelim + 'bin' +
+      PathSeparator +
+    Base + PathSeparator +
+    IncludeTrailingPathDelimiter(GetUserDir) + 'MCXStudio' + PathSeparator +
+    Base + ExeNames[ABackend] + PathDelim + 'bin' + PathSeparator +
+    Base + '..' + PathDelim + 'bin' + PathSeparator +
+    Base + '..' + PathDelim + '..' + PathDelim + 'bin' + PathSeparator +
+    Base + '..' + PathDelim + '..' + PathDelim + ExeNames[ABackend] +
+      PathDelim + 'bin' + PathSeparator +
+    Base + '..' + PathDelim + '..' + PathDelim + '..' + PathDelim +
+      ExeNames[ABackend] + PathDelim + 'bin' + PathSeparator +
+    GetEnvironmentVariable('PATH');
+
+  Result := FindInPath(Name, Paths);
+end;
+
+function McxPlain(const AText: string): string;
+var
+  i, n: Integer;
+begin
+  SetLength(Result, Length(AText));
+  n := 0;
+  i := 1;
+  while i <= Length(AText) do
+  begin
+    if (AText[i] = #27) and (i < Length(AText)) and (AText[i + 1] = '[') then
+    begin
+      { ESC [ parameters final-byte.  The final byte is the first one in
+        @-~; everything before it is digits and semicolons. }
+      Inc(i, 2);
+      while (i <= Length(AText)) and not (AText[i] in ['@'..'~']) do Inc(i);
+      Inc(i);
+    end
+    else if AText[i] = #8 then
+    begin
+      if n > 0 then Dec(n);
+      Inc(i);
+    end
+    else if AText[i] = #13 then
+      Inc(i)
+    else
+    begin
+      Inc(n);
+      Result[n] := AText[i];
+      Inc(i);
+    end;
+  end;
+  SetLength(Result, n);
+end;
+
+function McxBatchProgressOf(const ALine: string; out APercent: Integer): Boolean;
+var
+  S: string;
+  Open, Slash: Integer;
+  Done, Total: Int64;
+begin
+  Result := False;
+  APercent := -1;
+  S := Trim(ALine);
+  if (Copy(S, 1, 6) <> 'batch ') or (S = '') or (S[Length(S)] <> ')') then Exit;
+  Open := LastDelimiter('(', S);
+  Slash := LastDelimiter('/', S);
+  if (Open = 0) or (Slash < Open) then Exit;
+  Done := StrToInt64Def(Copy(S, Open + 1, Slash - Open - 1), -1);
+  Total := StrToInt64Def(Copy(S, Slash + 1, Length(S) - Slash - 1), -1);
+  if (Done < 0) or (Total <= 0) or (Done > Total) then Exit;
+  APercent := Done * 100 div Total;
+  Result := True;
+end;
+
+function McxProgressOf(const ATail: string; out APercent: Integer): Boolean;
+var
+  i, j: Integer;
+begin
+  Result := False;
+  APercent := -1;
+
+  i := Length(ATail);
+  while (i > 0) and (ATail[i] <> '%') do Dec(i);
+  if i = 0 then Exit;
+
+  j := i - 1;
+  while (j > 0) and (ATail[j] in ['0'..'9']) do Dec(j);
+  if j = i - 1 then Exit;                      { a % with no number before it }
+  APercent := StrToIntDef(Copy(ATail, j + 1, i - j - 1), -1);
+
+  while (j > 0) and (ATail[j] = ' ') do Dec(j);
+  if (j = 0) or (ATail[j] <> ']') then
+  begin
+    APercent := -1;
+    Exit;
+  end;
+
+  Result := (APercent >= 0) and (APercent <= 100);
+end;
+
+{ 'Device 1 of 2' -> 1, or -1. }
+function DeviceIndexOf(const AKey: string): Integer;
+var
+  Parts: TStringList;
+begin
+  Result := -1;
+  if Pos('Device ', AKey) <> 1 then Exit;
+  Parts := TStringList.Create;
+  try
+    Parts.Delimiter := ' ';
+    Parts.StrictDelimiter := True;
+    Parts.DelimitedText := AKey;
+    if (Parts.Count >= 2) then Result := StrToIntDef(Parts[1], -1);
+  finally
+    Parts.Free;
+  end;
+end;
+
+function McxParseDevices(const AText: string): TMcxDevices;
+var
+  Lines: TStringList;
+  i, Colon, Idx: Integer;
+  Key, Value: string;
+begin
+  Result := nil;
+  Lines := TStringList.Create;
+  try
+    Lines.Text := AText;
+    for i := 0 to Lines.Count - 1 do
+    begin
+      Colon := Pos(':', Lines[i]);
+      if Colon < 2 then Continue;
+      Key := Trim(Copy(Lines[i], 1, Colon - 1));
+      Value := Trim(Copy(Lines[i], Colon + 1, MaxInt));
+
+      Idx := DeviceIndexOf(Key);
+      if Idx >= 0 then
+      begin
+        SetLength(Result, Length(Result) + 1);
+        Result[High(Result)].Id := Idx;
+        Result[High(Result)].Name := Value;
+        Result[High(Result)].AutoThread := 0;
+        Result[High(Result)].AutoBlock := 0;
+        Result[High(Result)].Detail := '';
+        Continue;
+      end;
+
+      if Length(Result) = 0 then Continue;     { a preamble line }
+      if SameText(Key, 'Auto-thread') then
+        Result[High(Result)].AutoThread := StrToIntDef(Value, 0)
+      else if SameText(Key, 'Auto-block') then
+        Result[High(Result)].AutoBlock := StrToIntDef(Value, 0);
+
+      { Kept whole as well, so a field no version of this program knows about
+        still reaches the person reading the list. }
+      if Result[High(Result)].Detail <> '' then
+        Result[High(Result)].Detail := Result[High(Result)].Detail + #10;
+      Result[High(Result)].Detail := Result[High(Result)].Detail +
+        Key + ': ' + Value;
+    end;
+  finally
+    Lines.Free;
+  end;
+end;
+
+function McxAsk(const AExe: string; const AArgs: array of string;
+  out AText: string): Boolean;
+var
+  P: TProcess;
+  Buf: array[0..4095] of Char;
+  n, i: Integer;
+begin
+  Result := False;
+  AText := '';
+  if (AExe = '') or (not FileExists(AExe)) then Exit;
+  P := TProcess.Create(nil);
+  try
+    P.Executable := AExe;
+    for i := 0 to High(AArgs) do P.Parameters.Add(AArgs[i]);
+    P.Options := [poUsePipes, poStderrToOutPut, poNoConsole];
+    try
+      P.Execute;
+      repeat
+        n := P.Output.Read(Buf, SizeOf(Buf));
+        if n > 0 then AText := AText + Copy(Buf, 1, n);
+      until n <= 0;
+      P.WaitOnExit;
+      Result := True;
+    except
+      { A backend that will not start is not an error worth raising: the
+        caller wants an empty answer, not an exception. }
+      Result := False;
+    end;
+  finally
+    P.Free;
+  end;
+  AText := McxPlain(AText);
+end;
+
+function McxQueryDevices(const AExe: string; out AText: string): Boolean;
+begin
+  Result := McxAsk(AExe, ['-L'], AText);
+end;
+
+function McxBenchmarks(const AExe: string; AList: TStrings): Boolean;
+var
+  Text: string;
+  Lines: TStringList;
+  i: Integer;
+  S: string;
+begin
+  AList.Clear;
+  Result := McxAsk(AExe, ['-Q'], Text);
+  if not Result then Exit;
+  Lines := TStringList.Create;
+  try
+    Lines.Text := Text;
+    { The listing is a heading and then one tab-indented name a line
+      (mcx_utils.c:5528).  Taking only the indented lines skips the heading
+      without matching its wording, which is translated. }
+    for i := 0 to Lines.Count - 1 do
+    begin
+      S := Lines[i];
+      if (S = '') or (S[1] <> #9) then Continue;
+      S := Trim(S);
+      if S <> '' then AList.Add(S);
+    end;
+  finally
+    Lines.Free;
+  end;
+  Result := AList.Count > 0;
+end;
+
+function McxBenchmarkJSON(const AExe, AName: string; out AJSON: string): Boolean;
+var
+  Text: string;
+  p: Integer;
+begin
+  AJSON := '';
+  Result := McxAsk(AExe, ['-Q', AName, '--dumpjson', '2', '-n', '0'], Text);
+  if not Result then Exit;
+  { mcx prints its banner first, so the document starts at the first brace. }
+  p := Pos('{', Text);
+  Result := p > 0;
+  if Result then AJSON := Copy(Text, p, MaxInt);
+end;
+
+function McxDebugArg(const AFlags: string; ABackend: TMcxBackend): string;
+const
+  { mcx: debugflag[] = R M P T, one bit each, in that order.
+    mmc: S C B W D I O X A T R P E M -- so its progress bit is 2048. }
+  ProgressBit: array[TMcxBackend] of Integer = (4, 4, 2048, 4, 4, 4);
+var
+  i, Mask: Integer;
+  Numeric: Boolean;
+begin
+  Result := Trim(AFlags);
+  Numeric := Result <> '';
+  for i := 1 to Length(Result) do
+    if not (Result[i] in ['0'..'9']) then Numeric := False;
+
+  if Numeric then
+  begin
+    Mask := StrToIntDef(Result, 0) or ProgressBit[ABackend];
+    Result := IntToStr(Mask);
+    Exit;
+  end;
+  if Pos('P', UpperCase(Result)) = 0 then Result := Result + 'P';
+end;
+
+function BackendOf(ARun: TMcxDoc): TMcxBackend;
+var
+  S: string;
+begin
+  S := LowerCase(ARun.AsStr('@run.backend', 'mcx'));
+  if S = 'mcxcl' then Result := mbMCXCL
+  else if S = 'mmc' then Result := mbMMC
+  else if S = 'mcx-hip' then Result := mbHIP
+  else if S = 'vkmmc' then Result := mbVKMMC
+  else if S = 'umcx' then Result := mbUMCX
+  else Result := mbMCX;
+end;
+
+function McxBuildArgs(const AInputFile: string; ADoc, ARun: TMcxDoc): TStringList;
+var
+  S: string;
+begin
+  Result := TStringList.Create;
+  Result.Add('-f');
+  Result.Add(ExtractFileName(AInputFile));
+
+  S := ADoc.AsStr('Session.ID', '');
+  if S <> '' then
+  begin
+    Result.Add('-s');
+    Result.Add(S);
+  end;
+
+  { uMCX reads everything else from the file, and stops at a flag it does
+    not know. }
+  if BackendOf(ARun) = mbUMCX then
+  begin
+    McxSplitArgs(ARun.AsStr('@run.extraargs', ''), Result);
+    Exit;
+  end;
+
+  { vkmmc numbers its Vulkan devices from 0 and takes one, not mcx's mask,
+    and has no workload split or autopilot to turn off: it is left to pick
+    its own device and thread count. }
+  S := ARun.AsStr('@run.device', '');
+  if (S <> '') and (BackendOf(ARun) <> mbVKMMC) then
+  begin
+    Result.Add('-G');
+    Result.Add(S);
+  end;
+
+  S := ARun.AsStr('@run.workload', '');
+  if (S <> '') and (BackendOf(ARun) <> mbVKMMC) then
+  begin
+    Result.Add('-W');
+    Result.Add(S);
+  end;
+
+  { Thread and block size are only meaningful with autopilot off, and mcx
+    wants to be told so explicitly. }
+  if not ADoc.AsBool('Session.DoAutoThread') and (BackendOf(ARun) <> mbVKMMC) then
+  begin
+    Result.Add('-A');
+    Result.Add('0');
+    if ARun.AsInt('@run.nthread') > 0 then
+    begin
+      Result.Add('-t');
+      Result.Add(IntToStr(ARun.AsInt('@run.nthread')));
+    end;
+    if ARun.AsInt('@run.nblock') > 0 then
+    begin
+      Result.Add('-T');
+      Result.Add(IntToStr(ARun.AsInt('@run.nblock')));
+    end;
+  end;
+
+  { mmc traces with whichever backend the domain and the processor call for;
+    mcx has only one and does not take -c. }
+  S := ARun.AsStr('@run.compute', '');
+  if (S <> '') and (BackendOf(ARun) = mbMMC) then
+  begin
+    Result.Add('-c');
+    Result.Add(S);
+  end;
+
+  { The progress bar is how the window knows how far along a run is, so P is
+    always asked for -- but added to whatever the file asked for rather than
+    instead of it.  mcx's -D replaces the JSON's DebugFlag outright, so
+    passing a bare P silently turned off the trajectory recording the person
+    had just ticked, and no file appeared. }
+  S := McxDebugArg(ADoc.AsStr('Session.DebugFlag', ''), BackendOf(ARun));
+  Result.Add('-D');
+  Result.Add(S);
+
+  { How many trajectory positions to keep.  Command line only -- mcx's parser
+    has no JSON key for it -- and it matters: the default is ten million, and
+    ten million positions is a 200 MB text file that takes longer to write
+    than the simulation took to run and longer again to read back. }
+  if (Pos('M', UpperCase(S)) > 0) and (ARun.AsInt('@run.maxjumpdebug') > 0) then
+  begin
+    Result.Add('--maxjumpdebug');
+    Result.Add(IntToStr(ARun.AsInt('@run.maxjumpdebug')));
+  end;
+
+  { Whatever the person typed in the Compute section, last: mcx, mcxcl and
+    mmc take the last of an option given twice, so these win over the form. }
+  McxSplitArgs(ARun.AsStr('@run.extraargs', ''), Result);
+end;
+
+function McxCommandLine(const AExe, AInputFile: string;
+  ADoc, ARun: TMcxDoc): string;
+var
+  Args: TStringList;
+  i: Integer;
+begin
+  if AExe = '' then Result := 'mcx' else Result := ExtractFileName(AExe);
+  Args := McxBuildArgs(AInputFile, ADoc, ARun);
+  try
+    for i := 0 to Args.Count - 1 do
+      if Pos(' ', Args[i]) > 0 then
+        Result := Result + ' "' + Args[i] + '"'
+      else
+        Result := Result + ' ' + Args[i];
+  finally
+    Args.Free;
+  end;
+end;
+
+procedure McxSplitOutput(var ABuf: string; ALines: TStrings);
+var
+  p: Integer;
+  Line: string;
+begin
+  p := Pos(#10, ABuf);
+  while p > 0 do
+  begin
+    Line := McxPlain(Copy(ABuf, 1, p - 1));
+    Delete(ABuf, 1, p);
+    if Line <> '' then ALines.Add(Line);
+    p := Pos(#10, ABuf);
+  end;
+  { Collapsed every time, or the tail grows by a screenful of backspaces on
+    every redraw of the bar. }
+  ABuf := McxPlain(ABuf);
+end;
+
+{ TMcxRunner }
+
+constructor TMcxRunner.Create(const AExe: string; AArgs: TStrings;
+  const ADir: string);
+begin
+  inherited Create(True);
+  FreeOnTerminate := False;
+  FExe := AExe;
+  FDir := ADir;
+  FArgs := TStringList.Create;
+  if AArgs <> nil then FArgs.Assign(AArgs);
+  FLastPercent := -1;
+end;
+
+destructor TMcxRunner.Destroy;
+begin
+  FArgs.Free;
+  inherited Destroy;
+end;
+
+procedure TMcxRunner.Stop;
+begin
+  Terminate;
+  if (FProc <> nil) and FProc.Running then
+    FProc.Terminate(1);
+end;
+
+procedure TMcxRunner.SayLine;
+begin
+  if Assigned(FOnLine) then FOnLine(Self, FEmit);
+end;
+
+procedure TMcxRunner.SayProgress;
+begin
+  if Assigned(FOnProgress) then FOnProgress(Self, FPercent);
+end;
+
+procedure TMcxRunner.SayDone;
+begin
+  if Assigned(FOnDone) then FOnDone(Self, FExitCode);
+end;
+
+procedure TMcxRunner.Feed(const AChunk: string);
+var
+  Lines: TStringList;
+  i: Integer;
+begin
+  FBuf := FBuf + AChunk;
+  Lines := TStringList.Create;
+  try
+    McxSplitOutput(FBuf, Lines);
+    for i := 0 to Lines.Count - 1 do
+    begin
+      { A finished line can be a progress bar too.  The bar is only ended by
+        a newline when the run is over, so when a whole run arrives in one
+        read -- which is what happens to a fast simulation, or to anything
+        read from a file -- the final 100% is a line rather than a tail.
+        Reading it only from the tail loses the last reading entirely. }
+      if McxProgressOf(Lines[i], FPercent) then
+      begin
+        if FPercent <> FLastPercent then
+        begin
+          FLastPercent := FPercent;
+          Synchronize(@SayProgress);
+        end;
+        Continue;
+      end;
+      { vkmmc's batches are progress and worth reading too, so they are
+        counted and still logged. }
+      if McxBatchProgressOf(Lines[i], FPercent) and (FPercent <> FLastPercent) then
+      begin
+        FLastPercent := FPercent;
+        Synchronize(@SayProgress);
+      end;
+
+      FEmit := Lines[i];
+      { Synchronize rather than Queue: Queue returns at once, so the next
+        line through this loop would overwrite FEmit before the first had
+        been read, and a chunk holding five lines would report the fifth
+        five times. }
+      Synchronize(@SayLine);
+    end;
+  finally
+    Lines.Free;
+  end;
+
+  if McxProgressOf(FBuf, FPercent) and (FPercent <> FLastPercent) then
+  begin
+    FLastPercent := FPercent;
+    Synchronize(@SayProgress);
+  end;
+end;
+
+procedure TMcxRunner.Flush;
+begin
+  FBuf := McxPlain(FBuf);
+  if Trim(FBuf) <> '' then
+  begin
+    FEmit := FBuf;
+    FBuf := '';
+    Synchronize(@SayLine);
+  end;
+end;
+
+procedure TMcxRunner.Execute;
+var
+  Buf: array[0..4095] of Char;
+  n: Integer;
+begin
+  FExitCode := -1;
+  FProc := TProcess.Create(nil);
+  try
+    FProc.Executable := FExe;
+    FProc.Parameters.Assign(FArgs);
+    if FDir <> '' then FProc.CurrentDirectory := FDir;
+    FProc.Options := [poUsePipes, poStderrToOutPut, poNoConsole];
+    try
+      FProc.Execute;
+      { Read blocks until there is something or the pipe closes, which is what
+        makes this a thread rather than a timer. }
+      repeat
+        n := FProc.Output.Read(Buf, SizeOf(Buf));
+        if n > 0 then Feed(Copy(Buf, 1, n));
+      until (n <= 0) or Terminated;
+      if not Terminated then FProc.WaitOnExit;
+      FExitCode := FProc.ExitStatus;
+    except
+      on E: Exception do
+      begin
+        FEmit := 'could not start ' + FExe + ': ' + E.Message;
+        Synchronize(@SayLine);
+      end;
+    end;
+  finally
+    Flush;
+    FreeAndNil(FProc);
+  end;
+  Queue(@SayDone);
+end;
+
+end.
