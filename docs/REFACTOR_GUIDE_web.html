@@ -1,0 +1,812 @@
+<title>蒙特卡洛仓库重构指南</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap">
+<style>
+/* Layout: one reading column (≈68ch) with a sticky contents rail on wide screens; figures may run wider. */
+:root {
+  --bg: #FFFFFF;
+  --surface: #F4F2EE;
+  --surface-2: #EBE7E0;
+  --ink: #1B2A3A;
+  --ink-2: #4E5967;
+  --muted: #7C8693;
+  --line: #E0DBD2;
+  --accent: #A51C30;
+  --accent-soft: #F7E8EA;
+  --ok: #2F6B4F;
+  --ok-soft: #E4F0E9;
+  --warn: #8A5A12;
+  --warn-soft: #F6EEDC;
+  --code-bg: #1B2A3A;
+  --code-ink: #E8EDF3;
+  --font-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.2rem;
+  --step-2: 1.55rem;
+  --step-3: clamp(1.9rem, 1.4rem + 2vw, 2.6rem);
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1822; --surface: #172331; --surface-2: #1F2D3D; --ink: #E7ECF2; --ink-2: #B3BDC9;
+    --muted: #8691A0; --line: #2A394A; --accent: #E2637A; --accent-soft: #2B1B23;
+    --ok: #7CC4A0; --ok-soft: #17302A; --warn: #E0B266; --warn-soft: #2E2616;
+    --code-bg: #0A1119; --code-ink: #E3E9F0; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1822; --surface: #172331; --surface-2: #1F2D3D; --ink: #E7ECF2; --ink-2: #B3BDC9;
+  --muted: #8691A0; --line: #2A394A; --accent: #E2637A; --accent-soft: #2B1B23;
+  --ok: #7CC4A0; --ok-soft: #17302A; --warn: #E0B266; --warn-soft: #2E2616;
+  --code-bg: #0A1119; --code-ink: #E3E9F0; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: var(--step-0); line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
+code { font-family: var(--font-mono); font-size: 0.88em; background: var(--surface); padding: 0.1em 0.35em; border-radius: 4px; }
+h1, h2, h3 { text-wrap: balance; color: var(--ink); }
+h2 { font-family: var(--font-display); font-size: var(--step-2); line-height: 1.3; margin: 0 0 0.6rem; font-weight: 700; }
+h3 { font-size: var(--step-1); margin: 1.6rem 0 0.4rem; font-weight: 700; }
+p { margin: 0 0 1rem; }
+.eyebrow { font-size: var(--step--1); font-weight: 700; letter-spacing: 0.08em; color: var(--accent); margin: 0 0 0.4rem; }
+.muted { color: var(--muted); }
+.small { font-size: var(--step--1); }
+
+.shell {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 4rem;
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 2.5rem;
+}
+@media (min-width: 980px) {
+  .shell { grid-template-columns: 210px minmax(0, 1fr); }
+}
+.toc { display: none; }
+@media (min-width: 980px) {
+  .toc { display: block; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 1.5rem); align-self: start; padding-top: 2.5rem; }
+  .toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; }
+  .toc a { display: block; color: var(--ink-2); text-decoration: none; font-size: var(--step--1); padding: 0.3rem 0.6rem; border-radius: 6px; }
+  .toc a:hover { background: var(--surface); color: var(--ink); }
+  .toc a.active { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+}
+main { min-width: 0; }
+section { padding-top: 3.25rem; scroll-margin-top: 1rem; }
+.prose { max-width: 68ch; }
+
+/* Hero */
+.hero { padding-top: 2.75rem; }
+.hero h1 { font-family: var(--font-display); font-size: var(--step-3); line-height: 1.2; margin: 0 0 1rem; font-weight: 700; }
+.hero .lede { font-size: var(--step-1); color: var(--ink-2); max-width: 40em; }
+.meta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.25rem 0 1.75rem; }
+.chip { font-size: var(--step--1); padding: 0.2rem 0.7rem; border-radius: 999px; background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); }
+.chip.accent { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-weight: 700; }
+.paths { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.path { display: block; text-decoration: none; color: var(--ink); background: var(--surface); border-radius: var(--radius); padding: 1rem 1.1rem; transition: background .15s; }
+.path:hover { background: var(--surface-2); }
+.path strong { display: block; font-size: var(--step-0); margin-bottom: 0.2rem; }
+.path span { color: var(--ink-2); font-size: var(--step--1); line-height: 1.6; display: block; }
+.path em { font-style: normal; color: var(--accent); font-size: var(--step--1); font-weight: 700; }
+
+/* Photon simulation figure */
+.figure { background: var(--surface); border-radius: var(--radius); padding: 1rem; margin: 1.25rem 0 1.5rem; }
+.sim { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .sim { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } }
+.sim canvas { width: 100%; aspect-ratio: 5 / 3; max-width: 100%; display: block; border-radius: 6px; background: #0B1118; }
+.sim-side { display: flex; flex-direction: column; gap: 0.8rem; min-width: 0; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+button {
+  font: inherit; font-size: var(--step--1); font-weight: 700; cursor: pointer;
+  border-radius: 8px; padding: 0.5rem 0.9rem; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: 0.55; cursor: progress; }
+.ledger { display: grid; gap: 0.35rem; font-size: var(--step--1); }
+.ledger div { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px dashed var(--line); padding-bottom: 0.25rem; }
+.ledger b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-weight: 500; }
+.ledger .total { border-bottom: none; color: var(--ink); font-weight: 700; }
+.legend { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--muted); }
+.legend .ramp { flex: 1; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #0B1118, #3A1530, #A51C30, #E8762B, #F7D774, #FFFBEA); }
+
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; counter-reset: s; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 0.75rem; align-items: start; }
+.steps li::before { content: counter(s); width: 2rem; height: 2rem; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: var(--step--1); }
+.steps b { display: block; }
+.steps span { color: var(--ink-2); font-size: 0.95rem; }
+
+/* Glossary */
+.glossary { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin: 1rem 0 0; }
+.term { background: var(--surface); border-radius: var(--radius); padding: 0.9rem 1rem; }
+.term dt { font-weight: 700; }
+.term dt small { font-family: var(--font-mono); font-weight: 400; color: var(--muted); margin-left: 0.35rem; font-size: 0.8rem; }
+.term dd { margin: 0.25rem 0 0; color: var(--ink-2); font-size: 0.95rem; line-height: 1.65; }
+
+/* Repo bars */
+.bars { display: grid; gap: 0.5rem; margin: 1rem 0 0.5rem; }
+.bar { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr) 4.2rem; gap: 0.75rem; align-items: center; font-size: var(--step--1); }
+.bar .track { height: 14px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--muted); border-radius: 4px; }
+.bar.own .fill { background: var(--accent); min-width: 3px; }
+.bar.own { color: var(--accent); font-weight: 700; }
+.bar b { font-family: var(--font-mono); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { .bar { grid-template-columns: 6.5rem minmax(0, 1fr) 3.6rem; } }
+.callout { border-radius: var(--radius); padding: 1rem 1.1rem; background: var(--accent-soft); color: var(--ink); margin: 1.25rem 0; }
+.callout.ok { background: var(--ok-soft); }
+.callout.warn { background: var(--warn-soft); }
+.callout strong { color: var(--accent); }
+.callout.ok strong { color: var(--ok); }
+.callout.warn strong { color: var(--warn); }
+
+/* Tables */
+.table-wrap { overflow-x: auto; margin: 1rem 0 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--line); }
+th { background: var(--surface); font-weight: 700; color: var(--ink); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td:first-child { font-weight: 500; }
+
+/* Principles */
+.principles { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); counter-reset: p; }
+.principles li { background: var(--surface); border-radius: var(--radius); padding: 1rem 1.1rem; counter-increment: p; }
+.principles li::before { content: "原则 " counter(p); display: block; font-size: 0.75rem; letter-spacing: 0.06em; color: var(--accent); font-weight: 700; margin-bottom: 0.2rem; }
+.principles b { display: block; font-size: 1.02rem; margin-bottom: 0.25rem; }
+.principles span { display: block; color: var(--ink-2); font-size: 0.93rem; line-height: 1.65; }
+.principles .why { margin-top: 0.45rem; color: var(--muted); font-size: 0.85rem; }
+
+/* Code + copy */
+.cmd { display: flex; align-items: stretch; gap: 0; margin: 0.5rem 0 0.9rem; border-radius: 8px; overflow: hidden; background: var(--code-bg); }
+.cmd pre { margin: 0; padding: 0.7rem 0.9rem; flex: 1; min-width: 0; overflow-x: auto; color: var(--code-ink); font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.6; }
+.cmd button { border: none; border-left: 1px solid rgba(255,255,255,0.12); border-radius: 0; background: transparent; color: var(--code-ink); padding: 0 0.9rem; font-weight: 500; }
+.cmd button:hover { background: rgba(255,255,255,0.08); }
+pre.tree { background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius); padding: 1rem 1.1rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.84rem; line-height: 1.7; margin: 1rem 0; }
+pre.tree .c { color: #8FA3B8; }
+
+.howto { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 1rem; counter-reset: h; }
+.howto > li { counter-increment: h; background: var(--surface); border-radius: var(--radius); padding: 1rem 1.1rem 0.4rem; }
+.howto > li > h3 { margin: 0 0 0.35rem; font-size: 1.05rem; display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }
+.howto > li > h3::before { content: "第 " counter(h) " 步"; font-size: 0.78rem; color: var(--accent); font-weight: 700; letter-spacing: 0.04em; }
+.pill { font-size: 0.72rem; font-weight: 700; padding: 0.05rem 0.55rem; border-radius: 999px; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.wait { background: var(--warn-soft); color: var(--warn); }
+.pill.next { background: var(--accent-soft); color: var(--accent); }
+.pill.idle { background: var(--surface-2); color: var(--muted); }
+
+details { background: var(--surface); border-radius: var(--radius); padding: 0.8rem 1rem; margin: 0.5rem 0; }
+details summary { cursor: pointer; font-weight: 700; }
+details p { margin: 0.5rem 0 0.2rem; color: var(--ink-2); font-size: 0.95rem; }
+
+/* Timeline */
+.timeline { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 0; }
+.timeline li { display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: 0.9rem; position: relative; padding-bottom: 1.1rem; }
+.timeline li::before { content: ""; width: 0.8rem; height: 0.8rem; border-radius: 50%; margin-top: 0.45rem; background: var(--bg); border: 2px solid var(--muted); justify-self: center; z-index: 1; }
+.timeline li::after { content: ""; position: absolute; left: 0.6rem; top: 1.3rem; bottom: 0; width: 2px; background: var(--line); transform: translateX(-1px); }
+.timeline li:last-child::after { display: none; }
+.timeline li.done::before { background: var(--ok); border-color: var(--ok); }
+.timeline li.now::before { background: var(--accent); border-color: var(--accent); }
+.timeline .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
+.timeline b { font-size: 1rem; }
+.timeline span.d { display: block; color: var(--ink-2); font-size: 0.93rem; }
+
+/* Checklist */
+.checklist { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 1rem; }
+.checklist fieldset { border: none; margin: 0; padding: 1rem 1.1rem; background: var(--surface); border-radius: var(--radius); min-width: 0; }
+.checklist legend { font-weight: 700; padding: 0; float: left; width: 100%; margin-bottom: 0.4rem; }
+.checklist label { display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: 0.55rem; align-items: start; font-size: 0.93rem; color: var(--ink-2); padding: 0.25rem 0; cursor: pointer; clear: both; }
+.checklist input { margin: 0.35rem 0 0; accent-color: var(--accent); width: 1rem; height: 1rem; }
+.checklist input:checked + span { color: var(--muted); text-decoration: line-through; }
+.progress { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; font-size: var(--step--1); color: var(--ink-2); flex-wrap: wrap; }
+.progress .track { flex: 1; min-width: 140px; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.progress .fill { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+
+footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: var(--step--1); }
+</style>
+
+<div class="shell">
+  <nav class="toc" aria-label="目录">
+    <ol>
+      <li><a href="#what">一分钟看懂蒙特卡洛</a></li>
+      <li><a href="#terms">名词小抄</a></li>
+      <li><a href="#now">现在的仓库</a></li>
+      <li><a href="#principles">十条原则</a></li>
+      <li><a href="#after">整理后的样子</a></li>
+      <li><a href="#moves">每个文件去哪</a></li>
+      <li><a href="#start">上手：跑起来</a></li>
+      <li><a href="#trust">结果怎么算可信</a></li>
+      <li><a href="#plan">分阶段计划</a></li>
+      <li><a href="#rules">协作约定</a></li>
+      <li><a href="#checklist">通用清单</a></li>
+      <li><a href="#open">待确认事项</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <p class="eyebrow">Monte Carlo 光传输仿真 · 重构指南</p>
+      <h1>蒙特卡洛仓库重构指南</h1>
+      <p class="lede">我们要把散落的 MATLAB 原型和一大堆资料，整理成一个谁都能直接用的 Python 工具。这一页写给所有人：不写代码也能看懂我们在做什么、为什么这样做，以及你可以怎么参与。</p>
+      <div class="meta">
+        <span class="chip accent">方案已定 · 第 1 阶段待开始</span>
+        <span class="chip">分支 refactor/python-interactive</span>
+        <span class="chip">更新于 2026-11-07</span>
+      </div>
+      <div class="paths">
+        <a class="path" href="#what"><em>我是新同事</em><strong>我只想知道在做什么</strong><span>先看蒙特卡洛的小演示和名词小抄，5 分钟。</span></a>
+        <a class="path" href="#start"><em>我要动手</em><strong>我想把代码跑起来</strong><span>从下载仓库到跑出第一张图，按步骤来。</span></a>
+        <a class="path" href="#checklist"><em>我在做别的项目</em><strong>我想借用这套整理方法</strong><span>一张可以直接勾选的通用清单。</span></a>
+      </div>
+    </header>
+
+    <section id="what">
+      <p class="eyebrow">01 · 背景</p>
+      <h2>一分钟看懂蒙特卡洛</h2>
+      <div class="prose">
+        <p>光照进皮肤以后不走直线。它会不停地被细胞和纤维弹开、拐弯，一部分被吸收，一部分又从皮肤表面跑出去。光到底到了哪里、到了多少，没法直接测，所以要算。</p>
+        <p><b>蒙特卡洛（Monte Carlo，简称 MC）</b>的办法很朴素：在电脑里放出成千上万个“光子”，每个光子按组织的性质随机走一段、留下一点能量、换个方向，直到被吸收完或者跑出去。把所有光子留下的能量加起来，就知道光在组织里是怎么分布的。光子放得越多，结果越稳定。</p>
+      </div>
+
+      <div class="figure">
+        <div class="sim">
+          <div>
+            <canvas id="sim" width="600" height="360" aria-label="光子在皮肤模型中的分布示意图：上方是空气，往下是表皮和真皮，中间有一根血管"></canvas>
+            <div class="legend" style="margin-top:0.5rem"><span>光少</span><span class="ramp"></span><span>光多</span></div>
+          </div>
+          <div class="sim-side">
+            <div>
+              <b>在浏览器里试一试</b>
+              <p class="small muted" style="margin:0.25rem 0 0">示意模型：空气、表皮、真皮和一根血管。参数是为了演示调过的，不是真实值。真实的仿真在仓库的 <code>matlab/2demo</code> 里。</p>
+            </div>
+            <div class="btn-row">
+              <button class="primary" id="run" type="button">再发射 2000 个光子</button>
+              <button id="reset" type="button">清空</button>
+            </div>
+            <div class="ledger" aria-live="polite">
+              <div><span>已发射光子</span><b id="n">0</b></div>
+              <div><span>被组织吸收</span><b id="abs">–</b></div>
+              <div><span>从表面跑回空气</span><b id="refl">–</b></div>
+              <div><span>从侧面或底部离开</span><b id="esc">–</b></div>
+              <div class="total"><span>合计（含轮盘赌修正）</span><b id="sum">–</b></div>
+            </div>
+            <p class="small muted" style="margin:0">看血管（虚线圆）：血液吸收强，它下面明显暗一块。最后一行永远是 100%，这就是“能量守恒自检”，真实代码每次运行都会做。</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>一个光子的一生</h3>
+      <ol class="steps">
+        <li><div><b>发射</b><span>在光斑里随机取一点，照进组织。表面直接反射掉的那部分先扣掉。</span></div></li>
+        <li><div><b>走一段</b><span>随机决定这次走多远。组织越“浑浊”（散射越强），平均走得越短。</span></div></li>
+        <li><div><b>留一点</b><span>按吸收的强弱，把一部分能量留在所在的小方格里。</span></div></li>
+        <li><div><b>拐个弯</b><span>按散射规律换一个方向。人体组织多数时候只是稍微偏一点，不会掉头。</span></div></li>
+        <li><div><b>轮盘赌</b><span>能量太小的光子，十分之一的机会继续（能量乘 10），其余直接结束。平均下来能量不多不少，又省了计算。</span></div></li>
+      </ol>
+      <p class="prose muted small" style="margin-top:1rem">上期内部分享（10/22）讲过原理，用的也是这几步。这一页只讲我们怎么把它做成工程。</p>
+    </section>
+
+    <section id="terms">
+      <p class="eyebrow">02 · 名词</p>
+      <h2>名词小抄</h2>
+      <p class="prose">后面会反复出现这些词。看不懂哪个，回来查。</p>
+      <dl class="glossary">
+        <div class="term"><dt>光子包<small>photon packet</small></dt><dd>模拟里的“一个光子”其实代表一小份能量，可以一点点被吸收，所以叫光子包。</dd></div>
+        <div class="term"><dt>体素<small>voxel</small></dt><dd>把组织切成很多小立方格，像 3D 的像素。皮肤模型每格 10 微米，膝关节模型每格 1.25 毫米。</dd></div>
+        <div class="term"><dt>吸收系数<small>μa</small></dt><dd>组织“吃掉”光的本领。数越大，光走同样距离被吸收得越多。血液在 500 nm 很大。</dd></div>
+        <div class="term"><dt>散射系数<small>μs、μs′</small></dt><dd>光多久被弹开一次。μs′ 是“约化”后的值，把方向偏好也算进去了，文献里常给这个。</dd></div>
+        <div class="term"><dt>各向异性因子<small>g</small></dt><dd>每次散射偏向原方向的程度。0 表示随便乱弹，接近 1 表示几乎不拐。组织大约 0.9。</dd></div>
+        <div class="term"><dt>光注量率 / 光注量<small>W/cm²、J/cm²</small></dt><dd>前者是某一点每平方厘米收到多少功率；乘上照射时间就是后者，也就是“剂量”。</dd></div>
+        <div class="term"><dt>仓库 / 分支 / 提交<small>repo / branch / commit</small></dt><dd>仓库是项目文件夹加完整修改历史；分支是一条独立的修改线，不影响主线；提交是一次存档。</dd></div>
+        <div class="term"><dt>README</dt><dd>每个文件夹里的说明书：这里有什么、怎么用、谁负责、什么时候更新的。</dd></div>
+        <div class="term"><dt>预设<small>preset</small></dt><dd>一组配好的参数（几何、光学参数、光源），比如“皮肤 500 nm”。换预设就能算别的部位，不用改代码。</dd></div>
+      </dl>
+    </section>
+
+    <section id="now">
+      <p class="eyebrow">03 · 现状</p>
+      <h2>现在的仓库：863 MB 里，自己写的代码只有 2.1 MB</h2>
+      <p class="prose">实习生把收集到的东西都放进了同一个仓库，包括开源程序、安装包、论文和数据。真正属于我们的仿真代码只占大约 0.25%。下面是各部分的体积（不含 385 MB 的修改历史）。</p>
+      <div class="bars" role="img" aria-label="仓库各部分体积条形图：解剖模型 127 MB，文献 95，安装包 88，数据集 68，第三方源码 54，重复压缩包 48，自己写的代码 2.1">
+        <div class="bar"><span>解剖模型（未使用）</span><div class="track"><div class="fill" style="width:100%"></div></div><b>127</b></div>
+        <div class="bar"><span>论文和文献</span><div class="track"><div class="fill" style="width:74.8%"></div></div><b>95</b></div>
+        <div class="bar"><span>安装包（含 .exe）</span><div class="track"><div class="fill" style="width:69.3%"></div></div><b>88</b></div>
+        <div class="bar"><span>数据集压缩包</span><div class="track"><div class="fill" style="width:53.5%"></div></div><b>68</b></div>
+        <div class="bar"><span>第三方源码</span><div class="track"><div class="fill" style="width:42.5%"></div></div><b>54</b></div>
+        <div class="bar"><span>重复的压缩包</span><div class="track"><div class="fill" style="width:37.8%"></div></div><b>48</b></div>
+        <div class="bar own"><span>自己写的代码</span><div class="track"><div class="fill" style="width:1.7%"></div></div><b>2.1</b></div>
+      </div>
+      <p class="small muted">单位 MB。“重复的压缩包”是把 MCX、MMC、MCML 三个文件夹又打包了一遍。</p>
+
+      <h3>自己写的代码，有哪些地方不好用</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>问题</th><th>打个比方</th><th>具体例子</th></tr></thead>
+          <tbody>
+            <tr><td>同一套算法复制了两份，各改各的</td><td>一份菜谱抄了两遍，一遍改了火候，另一遍没改</td><td>膝关节版加了“光从空气射入”的处理，皮肤版没有</td></tr>
+            <tr><td>还有第三份旧版本</td><td>抽屉里还留着旧菜谱，不知道该信哪份</td><td><code>2demo/reference_serial_version/</code></td></tr>
+            <tr><td>参数藏在脚本里</td><td>调料用量写在做菜步骤中间，改一次要翻遍全文</td><td>脚本运行后假设“工作区里已经有某某变量”</td></tr>
+            <tr><td>建模、计算、画图混在一起</td><td>切菜、炒菜、摆盘在同一个步骤里</td><td><code>Tissue.m</code> 建完模型直接画图</td></tr>
+            <tr><td>单位不统一</td><td>有的写克，有的写两</td><td>皮肤用毫米，膝关节用厘米，只靠注释区分</td></tr>
+            <tr><td>文件名有空格和中文</td><td>标签写得太花，机器读不了</td><td><code>Tissue _optical_parameters.m</code> 只能用 <code>eval</code> 绕开</td></tr>
+            <tr><td>运行结果也放进了仓库</td><td>菜做好了连盘子一起塞进菜谱本</td><td>13 张结果图、<code>.mat</code> 数据文件</td></tr>
+            <tr><td>调试时的临时代码没删</td><td>草稿上的涂改没擦</td><td><code>fprintf("11111111111 用到了")</code></td></tr>
+            <tr><td>没有自动检查</td><td>每次都要人尝一口才知道咸淡</td><td>验证靠手动看 <code>verification.txt</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout ok"><strong>值得保留的地方：</strong>算法本身是对的，和经典的 MCML 程序一致；每次运行都检查能量守恒；并行计算时结果可以复现。所以这次是<b>换结构，不换物理</b>。</div>
+    </section>
+
+    <section id="principles">
+      <p class="eyebrow">04 · 原则</p>
+      <h2>十条整理原则</h2>
+      <p class="prose">动手之前先约定原则，遇到拿不准的地方回来对照。每条都附了“为什么”。</p>
+      <ol class="principles">
+        <li><b>一套引擎，多个预设</b><span>皮肤和膝关节只是几何、参数和光源不同。算法只写一次，差异变成开关。</span><span class="why">为什么：改一处 bug，所有模型一起修好。</span></li>
+        <li><b>参数和代码分开</b><span>光学参数、尺寸、光源写在单独的配置文件里，每个数字注明出处。</span><span class="why">为什么：换参数不用懂代码，也能追溯数字从哪来。</span></li>
+        <li><b>一个函数只做一件事</b><span>建模、计算、后处理、画图四层分开。计算部分不画图、不写文件。</span><span class="why">为什么：哪一层出问题，一眼能定位。</span></li>
+        <li><b>单位只用一种</b><span>内部统一用毫米，只在输入输出的地方换算并标清楚。</span><span class="why">为什么：毫米和厘米一混，结果差 10 倍甚至 100 倍。</span></li>
+        <li><b>物理不变，用测试证明</b><span>每次改动都要通过能量守恒检查，并和 MATLAB 原结果对比。</span><span class="why">为什么：“看起来差不多”不算证据。</span></li>
+        <li><b>速度靠编译，不靠偷工减料</b><span>逐个光子的循环用 Numba 编译，批次并行跑；固定随机种子，结果可复现。</span><span class="why">为什么：直接翻译成 Python 会慢约 100 倍。</span></li>
+        <li><b>仓库只放源代码和小数据</b><span>安装包、压缩包、论文、大数据集放共享盘，仓库里留链接。</span><span class="why">为什么：下载快，找东西也快。</span></li>
+        <li><b>旧代码冻结，不删除</b><span>MATLAB 原版移到 <code>legacy/</code>，当作对照基准，不再修改。</span><span class="why">为什么：新版结果有疑问时，有东西可比。</span></li>
+        <li><b>小步提交，每步都能跑</b><span>每次提交只做一类事（搬文件、拆模块、加测试），写清楚为什么。</span><span class="why">为什么：出了问题容易退回，也方便别人审阅。</span></li>
+        <li><b>每个文件夹都有 README</b><span>统一格式：是什么、谁负责、里面有什么、怎么用、更新记录、给 AI 的说明。</span><span class="why">为什么：人能看懂，AI 也能据此整理和更新。</span></li>
+      </ol>
+    </section>
+
+    <section id="after">
+      <p class="eyebrow">05 · 目标</p>
+      <h2>整理后的仓库长这样</h2>
+<pre class="tree" aria-label="整理后的目录结构">monte-carlo/
+├── README.md            <span class="c"># 先看这里：5 分钟上手</span>
+├── mcsim/               <span class="c"># Python 仿真程序本体</span>
+│   ├── geometry/        <span class="c">#   组织模型：皮肤、膝关节……</span>
+│   ├── kernel.py        <span class="c">#   光子怎么走（核心算法）</span>
+│   ├── runner.py        <span class="c">#   分批、并行</span>
+│   ├── analysis.py      <span class="c">#   剂量计算</span>
+│   └── plotting.py      <span class="c">#   画图</span>
+├── presets/             <span class="c"># 参数配置：skin_500nm、knee_980nm（每个数字带出处）</span>
+├── app/                 <span class="c"># 交互界面：拖滑块、点按钮就能算</span>
+├── tests/               <span class="c"># 自动检查：能量守恒、和 MATLAB 对比</span>
+├── docs/                <span class="c"># 文档：重构指南、算法说明、参数来源</span>
+├── slides/              <span class="c"># 分享 PPT（只在本地，不进公开仓库）</span>
+├── legacy/matlab/       <span class="c"># 原 MATLAB 代码，只读</span>
+└── references/          <span class="c"># 第三方资料的下载链接（文件本身不放仓库）</span></pre>
+
+      <h3>交互界面能做什么</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>区域</th><th>你能做的事</th></tr></thead>
+          <tbody>
+            <tr><td>左侧设置</td><td>选部位（皮肤 / 膝关节），调波长、光子数、光斑大小、入射角、功率、照射时间</td></tr>
+            <tr><td>看模型</td><td>先看组织截面和 3D 图，确认几何对了再开始算</td></tr>
+            <tr><td>看结果</td><td>光分布热图；能量去向表（吸收、反射、透射、侧面离开）</td></tr>
+            <tr><td>看剂量</td><td>选几个深度，看累计光注量（J/cm²）曲线</td></tr>
+            <tr><td>导出</td><td>结果数据、图片，以及这次运行的完整参数，别人拿去能算出一模一样的结果</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="moves">
+      <p class="eyebrow">06 · 处置</p>
+      <h2>每个文件去哪</h2>
+      <p class="prose">只在新分支上整理，主线不受影响。整理后的大文件还在修改历史里，彻底瘦身需要另外决定（见最后一节）。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>现在在哪</th><th>去哪</th><th>为什么</th></tr></thead>
+          <tbody>
+            <tr><td><code>matlab/2demo</code>、<code>matlab/5demo</code></td><td><code>legacy/matlab/</code>，只读</td><td>作为新版的对照基准</td></tr>
+            <tr><td><code>2demo/reference_serial_version/</code></td><td>删除</td><td>已被现行版本取代，历史里能找到</td></tr>
+            <tr><td>结果图、<code>.mat</code>、<code>.bak</code>、<code>.ps</code></td><td>删除，并设置为以后不再提交</td><td>运行就能重新生成</td></tr>
+            <tr><td>光学参数说明、流程图、简介 PDF</td><td><code>docs/</code></td><td>有价值的说明集中放</td></tr>
+            <tr><td>MCX、MMC、MCML 源码</td><td>移出仓库，README 写上游链接和版本</td><td>上游一直在维护，复制一份没有意义</td></tr>
+            <tr><td>重复的压缩包</td><td>删除</td><td>和文件夹内容完全一样</td></tr>
+            <tr><td>MCXStudio 安装包和同名 zip</td><td>删除，留官方下载链接</td><td>安装包不该放在源代码仓库</td></tr>
+            <tr><td>论文 zip、数据集 zip、PDF</td><td>共享盘，<code>references/README.md</code> 列清单和链接</td><td>压缩包搜不到内容，数据集太大</td></tr>
+            <tr><td>膝关节图谱、头部 3D 网页</td><td>共享盘，留链接</td><td>当前仿真没用到</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="start">
+      <p class="eyebrow">07 · 上手</p>
+      <h2>上手：把代码跑起来</h2>
+      <p class="prose">按顺序做。每一步都写了“做完是什么样子”，对上了再往下走。</p>
+      <ol class="howto">
+        <li>
+          <h3>装好 git <span class="pill ok">现在可做</span></h3>
+          <p>git 是下载仓库和记录修改的工具。Mac 打开“终端”输入 <code>git --version</code>，有版本号就说明装好了；没有的话系统会提示安装。Windows 从 git-scm.com 下载安装，一路默认即可。</p>
+        </li>
+        <li>
+          <h3>下载仓库 <span class="pill ok">现在可做</span></h3>
+          <p>在终端里进入你想放项目的文件夹，然后运行：</p>
+          <div class="cmd"><pre>git clone https://github.com/mmd520520/Monte-carlo.git</pre><button type="button" data-copy>复制</button></div>
+          <p class="small muted">做完是什么样子：多出一个 <code>Monte-carlo</code> 文件夹。仓库比较大（约 860 MB），第一次下载要等几分钟。</p>
+        </li>
+        <li>
+          <h3>切到工作分支 <span class="pill wait">推送后可做</span></h3>
+          <p>整理工作在单独的分支上进行。这个分支目前还在本地，推送到 GitHub 之后，运行：</p>
+          <div class="cmd"><pre>cd Monte-carlo
+git checkout refactor/python-interactive</pre><button type="button" data-copy>复制</button></div>
+          <p class="small muted">做完是什么样子：文件夹里出现 <code>README.md</code>、<code>docs/</code> 和 <code>slides/</code>。</p>
+        </li>
+        <li>
+          <h3>先读 README <span class="pill ok">现在可做</span></h3>
+          <p>打开根目录的 <code>README.md</code>，它会告诉你每个文件夹是什么。每个文件夹里还有自己的 README。</p>
+        </li>
+        <li>
+          <h3>跑 MATLAB 示例 <span class="pill ok">现在可做</span></h3>
+          <p>需要 MATLAB。打开 MATLAB，把当前文件夹切到 <code>matlab/2demo</code>（皮肤模型），在命令行输入 <code>main</code> 回车。</p>
+          <p class="small muted">第一次先把 <code>main.m</code> 里的 <code>photonCount</code> 改成 2000，几秒钟就能看到结果图。没有并行计算工具箱的话，把 <code>options.useParallel</code> 改成 <code>false</code>。</p>
+        </li>
+        <li>
+          <h3>用 Python 版和交互界面 <span class="pill idle">第 3、6 阶段后可用</span></h3>
+          <p>Python 版完成后，安装好 <code>uv</code>（Python 环境管理工具），在仓库根目录运行下面两行，浏览器里就会打开交互界面：</p>
+          <div class="cmd"><pre>uv sync
+uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>复制</button></div>
+          <p class="small muted">现在运行会报错，因为这些文件还没写。届时这一节会更新。</p>
+        </li>
+      </ol>
+
+      <h3>常见问题</h3>
+      <details><summary>MATLAB 提示需要 Parallel Computing Toolbox</summary><p>在 <code>main.m</code> 里把 <code>options.useParallel = true</code> 改成 <code>false</code>，改成单线程运行，慢一些但结果一样。</p></details>
+      <details><summary>跑了很久都没结束</summary><p>光子数太多了。膝关节模型 10 万个光子要几十分钟。先用 2000 到 10000 个试，确认能跑通再加。</p></details>
+      <details><summary>Windows 上中文文件名显示成一串数字</summary><p>在终端运行 <code>git config --global core.quotepath false</code>，再看一次就正常了。</p></details>
+      <details><summary>我改了文件，不确定会不会弄坏别人的东西</summary><p>只要没有“推送”（push），所有修改都只在你自己的电脑上。拿不准的时候，先问负责人再推送。</p></details>
+    </section>
+
+    <section id="trust">
+      <p class="eyebrow">08 · 验收</p>
+      <h2>结果怎么才算可信</h2>
+      <p class="prose">新版代码要过下面六关。前四关都会写成自动检查，每次改动后自动跑一遍。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>检查什么</th><th>通俗说法</th><th>通过的标准</th></tr></thead>
+          <tbody>
+            <tr><td>能量守恒</td><td>光子带进去多少能量，最后都要有去处，一点不能多也不能少</td><td>吸收、反射、透射、侧面离开等全部加起来等于 1，误差小于一亿分之一</td></tr>
+            <tr><td>物理极限</td><td>只吸收不散射时，结果要和教科书公式一致</td><td>符合比尔–朗伯定律；折射率相同时边界不反射</td></tr>
+            <tr><td>和 MATLAB 对比</td><td>新旧两版算同一个问题，答案要一样</td><td>反射、吸收、透射在统计误差范围内一致</td></tr>
+            <tr><td>可复现</td><td>同样的设置再算一次，结果一模一样</td><td>同一随机种子两次结果逐位相同；单线程和并行结果一致</td></tr>
+            <tr><td>速度</td><td>普通笔记本上能等得起</td><td>10 万个光子（皮肤模型）不到 1 分钟</td></tr>
+            <tr><td>好上手</td><td>新同事不用人教也能跑起来</td><td>按 README 从下载到出图不超过 5 分钟</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="plan">
+      <p class="eyebrow">09 · 计划</p>
+      <h2>分阶段计划</h2>
+      <p class="prose">每个阶段结束时都能运行，单独提交审阅后再进入下一步。</p>
+      <ol class="timeline">
+        <li class="done"><div><div class="row"><b>0. 写方案</b><span class="pill ok">已完成</span></div><span class="d">重构指南、这个网页、每个文件夹的 README；分享材料整理在本地。</span></div></li>
+        <li class="now"><div><div class="row"><b>1. 整理仓库</b><span class="pill next">下一步</span></div><span class="d">按“每个文件去哪”搬移和删除，设置哪些文件不再提交。做完后仓库文件不到 5 MB（不含历史）。</span></div></li>
+        <li><div><div class="row"><b>2. 搭骨架</b><span class="pill idle">未开始</span></div><span class="d">建好 Python 包的结构和参数配置格式，写好两个预设文件。</span></div></li>
+        <li><div><div class="row"><b>3. 移植核心算法</b><span class="pill idle">未开始</span></div><span class="d">先跑通皮肤模型，通过能量守恒检查。</span></div></li>
+        <li><div><div class="row"><b>4. 和 MATLAB 对比</b><span class="pill idle">未开始</span></div><span class="d">在 MATLAB 里跑一组固定参数作为标准答案，写进自动检查。</span></div></li>
+        <li><div><div class="row"><b>5. 膝关节和剂量</b><span class="pill idle">未开始</span></div><span class="d">膝关节预设和剂量计算，结果和原 MATLAB 一致。</span></div></li>
+        <li><div><div class="row"><b>6. 交互界面</b><span class="pill idle">未开始</span></div><span class="d">本地能演示的网页界面。</span></div></li>
+        <li><div><div class="row"><b>7. 补全文档</b><span class="pill idle">未开始</span></div><span class="d">算法说明、参数来源，新同事能独立上手。</span></div></li>
+      </ol>
+    </section>
+
+    <section id="rules">
+      <p class="eyebrow">10 · 约定</p>
+      <h2>协作约定</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>事情</th><th>约定</th></tr></thead>
+          <tbody>
+            <tr><td>在哪条线上改</td><td>长期分支 <code>refactor/python-interactive</code>，每个阶段一次合并请求（PR），审阅后合入</td></tr>
+            <tr><td>提交说明怎么写</td><td><code>类型: 做了什么</code>。类型用 chore（整理）、feat（新功能）、fix（修复）、test（测试）、docs（文档）</td></tr>
+            <tr><td>改光学参数</td><td>同时写上出处，没有出处的数字不能进预设</td></tr>
+            <tr><td>改核心算法</td><td>所有自动检查都通过才能提交</td></tr>
+            <tr><td>原 MATLAB 代码</td><td>只读。发现 bug 记到 docs/，不改原文件</td></tr>
+            <tr><td>【】是什么</td><td>文档和 PPT 里带【】的，都是还没确认、等人填的内容</td></tr>
+            <tr><td>文件命名</td><td><code>日期_主题_作者_版本</code>，例如 <code>20261107_蒙特卡洛阶段分享_框架_v1.pptx</code></td></tr>
+            <tr><td>公开仓库</td><td>仓库是公开的。个人信息、未公开数据、内部材料（如分享 PPT）只放本地，不提交</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>README 怎么写（复制就能用）</h3>
+      <div class="cmd"><pre id="readme-tpl"># 文件夹名：一句话说明
+
+> 这里是什么，给谁用。
+
+| 状态 | 负责人 | 最后更新 |
+|---|---|---|
+| 进行中 / 已完成 / 已废弃 | 名字 | 2026-11-07 |
+
+## 里面有什么
+| 文件 | 说明 |
+|---|---|
+
+## 怎么用
+
+## 更新记录
+- 2026-11-07：建立。
+
+## 给 AI 的说明
+- 哪些是权威来源，哪些不要改，改了要同步哪里。</pre><button type="button" data-copy>复制</button></div>
+      <p class="prose small muted">最后一节“给 AI 的说明”是这个仓库的特色：让 AI 帮忙整理或更新时，它会先读这里，知道哪些内容不能动。</p>
+    </section>
+
+    <section id="checklist">
+      <p class="eyebrow">11 · 模版</p>
+      <h2>通用清单：把科研原型整理成可维护的项目</h2>
+      <p class="prose">这套方法不只适用于这个仓库。整理你自己的项目时，照着勾一遍。勾选状态只保存在你自己的浏览器里。</p>
+      <form class="checklist" id="cl" onsubmit="return false">
+        <fieldset>
+          <legend>盘点</legend>
+          <label><input type="checkbox" id="c1"><span>把每个顶层文件归类：自己的代码、第三方、数据、文献、运行产物，并记下体积</span></label>
+          <label><input type="checkbox" id="c2"><span>找出重复：压缩包和解压后的文件夹、几份相似的代码、旧版本备份</span></label>
+          <label><input type="checkbox" id="c3"><span>列出写死在代码里的参数、单位和来路不明的数字</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>原则</legend>
+          <label><input type="checkbox" id="c4"><span>核心逻辑只有一份，差异做成配置</span></label>
+          <label><input type="checkbox" id="c5"><span>参数和代码分开，每个参数写清出处</span></label>
+          <label><input type="checkbox" id="c6"><span>计算、后处理、画图分层</span></label>
+          <label><input type="checkbox" id="c7"><span>单位统一，只在边界换算</span></label>
+          <label><input type="checkbox" id="c8"><span>用自动检查证明“行为没变”，不靠肉眼对图</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>仓库卫生</legend>
+          <label><input type="checkbox" id="c9"><span>不提交压缩包、安装包、可执行文件、运行结果和大数据集</span></label>
+          <label><input type="checkbox" id="c10"><span>第三方代码只留链接和版本，不复制</span></label>
+          <label><input type="checkbox" id="c11"><span>原版代码冻结到 legacy/ 作为对照</span></label>
+          <label><input type="checkbox" id="c12"><span>每个文件夹都有按统一格式写的 README</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>交付</legend>
+          <label><input type="checkbox" id="c13"><span>README 里一条命令安装、一条命令运行</span></label>
+          <label><input type="checkbox" id="c14"><span>验收标准写成能自动运行的检查</span></label>
+          <label><input type="checkbox" id="c15"><span>分阶段提交，每个阶段都能运行、能审阅</span></label>
+        </fieldset>
+      </form>
+      <div class="progress"><span id="cl-count">已完成 0 / 15</span><div class="track"><div class="fill" id="cl-fill"></div></div><button type="button" id="cl-reset">清空勾选</button></div>
+    </section>
+
+    <section id="open">
+      <p class="eyebrow">12 · 待定</p>
+      <h2>还没决定的事</h2>
+      <p class="prose">下面几件事需要负责人拍板。在决定之前，按“默认方案”推进。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>事项</th><th>默认方案</th><th>另一个选择</th></tr></thead>
+          <tbody>
+            <tr><td>第三方资料放哪</td><td>移出仓库，放共享盘，留链接</td><td>留在 references/ 里，但不再新增</td></tr>
+            <tr><td>要不要清理修改历史来缩小体积</td><td>暂时不清理</td><td>用 git filter-repo 清理。不可撤销，所有人要重新下载</td></tr>
+            <tr><td>交互界面用什么做</td><td>Streamlit 网页界面</td><td>Jupyter 笔记本加滑块，或者两种都做</td></tr>
+            <tr><td>先移植哪个模型</td><td>先皮肤（简单，好核对），再膝关节</td><td>直接做膝关节</td></tr>
+            <tr><td>要不要接 MCX（显卡加速）</td><td>第二期再评估</td><td>用 pmcx 作为高性能后端</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout warn"><strong>注意：</strong>这个 GitHub 仓库是公开的，任何人都能看到推送上去的内容。</div>
+    </section>
+
+    <footer>
+      <p>本页内容来自仓库里的 <code>docs/REFACTOR_GUIDE.md</code>，两者以那份文件为准。分享材料属于内部资料，不在公开仓库。</p>
+    </footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  /* ---------- Copy buttons ---------- */
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var pre = btn.parentElement.querySelector("pre");
+      var text = pre.innerText;
+      var done = function () { btn.textContent = "已复制"; setTimeout(function () { btn.textContent = "复制"; }, 1600); };
+      var fallback = function () {
+        var r = document.createRange(); r.selectNodeContents(pre);
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        btn.textContent = "已选中，按 ⌘C / Ctrl+C"; setTimeout(function () { btn.textContent = "复制"; }, 2400);
+      };
+      try {
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } catch (e) { fallback(); }
+    });
+  });
+
+  /* ---------- Contents highlight ---------- */
+  var links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
+  if ("IntersectionObserver" in window && links.length) {
+    var map = {};
+    links.forEach(function (a) { map[a.getAttribute("href").slice(1)] = a; });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (a) { a.classList.remove("active"); });
+          var a = map[e.target.id]; if (a) a.classList.add("active");
+        }
+      });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    Object.keys(map).forEach(function (id) { var el = document.getElementById(id); if (el) io.observe(el); });
+  }
+
+  /* ---------- Checklist (per-viewer, localStorage) ---------- */
+  var KEY = "mc-refactor-checklist-v1";
+  var boxes = Array.prototype.slice.call(document.querySelectorAll("#cl input[type=checkbox]"));
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { saved = {}; }
+  function sync() {
+    var n = boxes.filter(function (b) { return b.checked; }).length;
+    document.getElementById("cl-count").textContent = "已完成 " + n + " / " + boxes.length;
+    document.getElementById("cl-fill").style.width = (100 * n / boxes.length) + "%";
+  }
+  boxes.forEach(function (b) {
+    b.checked = !!saved[b.id];
+    b.addEventListener("change", function () {
+      saved[b.id] = b.checked;
+      try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
+      sync();
+    });
+  });
+  document.getElementById("cl-reset").addEventListener("click", function () {
+    boxes.forEach(function (b) { b.checked = false; });
+    saved = {};
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    sync();
+  });
+  sync();
+
+  /* ---------- Photon random-walk demo (2-D, illustrative parameters) ---------- */
+  var canvas = document.getElementById("sim");
+  var ctx = canvas.getContext("2d");
+  var NX = 150, NZ = 90;                       // grid cells
+  var SURF = 14, EPI = 19;                     // air above SURF, epidermis SURF..EPI
+  var VX = 75, VZ = 50, VR = 10;               // vessel centre/radius (cells)
+  // [mua, mus] per cell length; g shared. Tuned for a readable picture, not physiology.
+  var TISSUE = { air: [0, 0], epi: [0.05, 0.9], derm: [0.012, 0.9], blood: [0.45, 0.9] };
+  var G = 0.85, DS = 0.5, BEAM = 14;
+  var A = new Float64Array(NX * NZ);           // absorbed weight per cell
+  var tally = { n: 0, abs: 0, refl: 0, esc: 0 };
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function tissueAt(x, z) {
+    if (z < SURF) return TISSUE.air;
+    var dx = x - VX, dz = z - VZ;
+    if (dx * dx + dz * dz <= VR * VR) return TISSUE.blood;
+    if (z < EPI) return TISSUE.epi;
+    return TISSUE.derm;
+  }
+  function scatter(ux, uz) {
+    // wrapped-Cauchy deflection: 2-D analogue of Henyey-Greenstein with mean cosine ≈ g
+    var t = 2 * Math.atan(((1 - G) / (1 + G)) * Math.tan(Math.PI * (Math.random() - 0.5)));
+    var c = Math.cos(t), s = Math.sin(t);
+    return [ux * c - uz * s, ux * s + uz * c];
+  }
+  function photon(path) {
+    var x = NX / 2 + (Math.random() - 0.5) * BEAM, z = SURF + 0.001, ux = 0, uz = 1, w = 1;
+    tally.n++;
+    for (var step = 0; step < 6000; step++) {
+      var t = tissueAt(x, z), mua = t[0], mus = t[1];
+      var ix = x | 0, iz = z | 0;
+      var dep = w * (1 - Math.exp(-mua * DS));
+      if (dep > 0) { A[iz * NX + ix] += dep; tally.abs += dep; w -= dep; }
+      if (Math.random() < 1 - Math.exp(-mus * DS)) { var u = scatter(ux, uz); ux = u[0]; uz = u[1]; }
+      x += ux * DS; z += uz * DS;
+      if (path && step % 2 === 0) path.push(x, z);
+      if (z < SURF) { tally.refl += w; return; }
+      if (x < 0 || x >= NX || z >= NZ) { tally.esc += w; return; }
+      if (w < 0.01) {
+        // roulette: survivors gain 9w, the rest lose w; the correction keeps the books exact
+        if (Math.random() < 0.1) { rouletteLoss -= 9 * w; w *= 10; }
+        else { rouletteLoss += w; return; }
+      }
+    }
+    tally.esc += w;
+  }
+  var rouletteLoss = 0; // roulette correction (old weight − new weight), as in Step8_SpinCheck.m
+
+  var off = document.createElement("canvas"); off.width = NX; off.height = NZ;
+  var octx = off.getContext("2d"); var img = octx.createImageData(NX, NZ);
+  var RAMP = [[11,17,24],[58,21,48],[165,28,48],[232,118,43],[247,215,116],[255,251,234]];
+  function ramp(v) {
+    v = Math.max(0, Math.min(1, v)) * (RAMP.length - 1);
+    var i = Math.min(RAMP.length - 2, v | 0), f = v - i, a = RAMP[i], b = RAMP[i + 1];
+    return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+  }
+  function render(paths) {
+    // fluence ≈ absorbed / mua, shown on a log scale over ~3.5 decades
+    var phi = new Float64Array(NX * NZ), max = 0;
+    for (var iz = 0; iz < NZ; iz++) for (var ix = 0; ix < NX; ix++) {
+      var t = tissueAt(ix + 0.5, iz + 0.5);
+      var k = iz * NX + ix;
+      if (t[0] > 0) { phi[k] = A[k] / t[0]; if (phi[k] > max) max = phi[k]; }
+    }
+    for (var k2 = 0; k2 < NX * NZ; k2++) {
+      var zrow = (k2 / NX) | 0, c;
+      if (zrow < SURF) c = [16, 24, 34];
+      else if (phi[k2] <= 0 || max === 0) c = [11, 17, 24];
+      else c = ramp(1 + Math.log10(phi[k2] / max) / 3.5);
+      img.data[k2 * 4] = c[0]; img.data[k2 * 4 + 1] = c[1]; img.data[k2 * 4 + 2] = c[2]; img.data[k2 * 4 + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+    var W = canvas.width, H = canvas.height, sx = W / NX, sz = H / NZ;
+    ctx.imageSmoothingEnabled = true;
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(off, 0, 0, W, H);
+    // beam in air
+    ctx.fillStyle = "rgba(247,215,116,0.18)";
+    ctx.fillRect((NX / 2 - BEAM / 2) * sx, 0, BEAM * sx, SURF * sz);
+    // outlines + labels
+    ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(0, SURF * sz); ctx.lineTo(W, SURF * sz); ctx.stroke();
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(0, EPI * sz); ctx.lineTo(W, EPI * sz); ctx.stroke();
+    ctx.beginPath(); ctx.arc(VX * sx, VZ * sz, VR * sx, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    if (paths) {
+      ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 1;
+      paths.forEach(function (p) {
+        ctx.beginPath(); ctx.moveTo(p[0] * sx, p[1] * sz);
+        for (var i = 2; i < p.length; i += 2) ctx.lineTo(p[i] * sx, p[i + 1] * sz);
+        ctx.stroke();
+      });
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.font = "13px " + getComputedStyle(document.body).fontFamily;
+    ctx.fillText("空气", 10, 18); ctx.fillText("表皮", 10, (SURF + 3.6) * sz);
+    ctx.fillText("真皮", 10, (EPI + 8) * sz); ctx.fillText("血管", (VX + VR + 2) * sx, VZ * sz);
+    // ledger
+    var tot = tally.abs + tally.refl + tally.esc + rouletteLoss;
+    var pct = function (v) { return tally.n ? (100 * v / tally.n).toFixed(1) + "%" : "–"; };
+    document.getElementById("n").textContent = tally.n.toLocaleString("zh-CN");
+    document.getElementById("abs").textContent = pct(tally.abs);
+    document.getElementById("refl").textContent = pct(tally.refl);
+    document.getElementById("esc").textContent = pct(tally.esc);
+    document.getElementById("sum").textContent = tally.n ? (100 * tot / tally.n).toFixed(1) + "%" : "–";
+  }
+  function sizeCanvas() {
+    var r = canvas.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (r.width > 0) { canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.width * 0.6 * dpr); }
+  }
+  function batch(n) { for (var i = 0; i < n; i++) photon(null); }
+
+  var runBtn = document.getElementById("run");
+  runBtn.addEventListener("click", function () {
+    runBtn.disabled = true;
+    if (reduceMotion) { batch(2000); render(); runBtn.disabled = false; return; }
+    var paths = [], frame = 0;
+    for (var i = 0; i < 12; i++) { var p = []; photon(p); paths.push(p); }
+    var shown = paths.map(function () { return 2; });
+    (function tick() {
+      frame++;
+      batch(165);
+      var vis = paths.map(function (p, j) { shown[j] = Math.min(p.length, shown[j] + 24); return p.slice(0, shown[j]); });
+      render(frame < 12 ? vis : null);
+      if (frame < 12) requestAnimationFrame(tick);
+      else { render(); runBtn.disabled = false; }
+    })();
+  });
+  document.getElementById("reset").addEventListener("click", function () {
+    A.fill(0); tally = { n: 0, abs: 0, refl: 0, esc: 0 }; rouletteLoss = 0; render();
+  });
+  window.addEventListener("resize", function () { sizeCanvas(); render(); });
+
+  sizeCanvas();
+  batch(4000);
+  render();
+})();
+</script>
