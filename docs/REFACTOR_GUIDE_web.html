@@ -241,7 +241,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
       <h1>蒙特卡洛仓库重构指南</h1>
       <p class="lede">我们要把散落的 MATLAB 原型和一大堆资料，整理成一个谁都能直接用的 Python 工具。这一页写给所有人：不写代码也能看懂我们在做什么、为什么这样做，以及你可以怎么参与。</p>
       <div class="meta">
-        <span class="chip accent">第 1 阶段已完成 · 第 2 阶段待开始</span>
+        <span class="chip accent">第 1–7 阶段已完成 · Python 版可用</span>
         <span class="chip">分支 refactor/python-interactive</span>
         <span class="chip">更新于 2026-11-07</span>
       </div>
@@ -329,7 +329,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
         <div class="bar own"><span>自己写的代码</span><div class="track"><div class="fill" style="width:1.7%"></div></div><b>2.1</b></div>
       </div>
       <p class="small muted">单位 MB。“重复的压缩包”是把 MCX、MMC、MCML 三个文件夹又打包了一遍。</p>
-      <div class="callout ok"><strong>已整理（2026-11-07）：</strong>第三方资料移到本地 <code>references/</code>（清单和下载地址见 <code>references/README.md</code>），运行产物移到本地 <code>outputs/</code>。git 里只剩 68 个文件、2.4 MB。</div>
+      <div class="callout ok"><strong>已整理（2026-11-07）：</strong>第三方资料移到本地 <code>references/</code>（清单和下载地址见 <code>references/README.md</code>），运行产物移到本地 <code>outputs/</code>。git 里只剩 72 个文件、2.4 MB。</div>
 
       <h3>自己写的代码，有哪些地方不好用</h3>
       <div class="table-wrap">
@@ -457,11 +457,11 @@ git checkout refactor/python-interactive</pre><button type="button" data-copy>�
           <p class="small muted">第一次先把 <code>main.m</code> 里的 <code>photonCount</code> 改成 2000，几秒钟就能看到结果图。没有并行计算工具箱的话，把 <code>options.useParallel</code> 改成 <code>false</code>。</p>
         </li>
         <li>
-          <h3>用 Python 版和交互界面 <span class="pill idle">第 3、6 阶段后可用</span></h3>
-          <p>Python 版完成后，安装好 <code>uv</code>（Python 环境管理工具），在仓库根目录运行下面两行，浏览器里就会打开交互界面：</p>
+          <h3>用 Python 版和交互界面 <span class="pill ok">现在可做</span></h3>
+          <p>安装好 <code>uv</code>（Python 环境管理工具，Mac 上 <code>brew install uv</code>），在仓库根目录运行下面两行，然后用浏览器打开 <code>http://localhost:8501</code>：</p>
           <div class="cmd"><pre>uv sync
 uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>复制</button></div>
-          <p class="small muted">现在运行会报错，因为这些文件还没写。届时这一节会更新。</p>
+          <p class="small muted">做完是什么样子：网页左侧是设置，右侧显示组织模型、光分布和剂量。第一次运行要编译约 10 秒。命令行版：<code>uv run mcsim run knee_980nm --dose 10 20 40</code>。</p>
         </li>
       </ol>
 
@@ -497,13 +497,13 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
       <p class="prose">每个阶段结束时都能运行，单独提交审阅后再进入下一步。</p>
       <ol class="timeline">
         <li class="done"><div><div class="row"><b>0. 写方案</b><span class="pill ok">已完成</span></div><span class="d">重构指南、这个网页、每个文件夹的 README；分享材料整理在本地。</span></div></li>
-        <li class="done"><div><div class="row"><b>1. 整理仓库</b><span class="pill ok">已完成</span></div><span class="d">第三方资料和大文件移到本地 references/，运行产物移到本地 outputs/，MATLAB 代码冻结到 legacy/。git 里只剩 68 个文件、2.4 MB（不含历史）。</span></div></li>
-        <li class="now"><div><div class="row"><b>2. 搭骨架</b><span class="pill next">下一步</span></div><span class="d">建好 Python 包的结构和参数配置格式，写好两个预设文件。</span></div></li>
-        <li><div><div class="row"><b>3. 移植核心算法</b><span class="pill idle">未开始</span></div><span class="d">先跑通皮肤模型，通过能量守恒检查。</span></div></li>
-        <li><div><div class="row"><b>4. 和 MATLAB 对比</b><span class="pill idle">未开始</span></div><span class="d">在 MATLAB 里跑一组固定参数作为标准答案，写进自动检查。</span></div></li>
-        <li><div><div class="row"><b>5. 膝关节和剂量</b><span class="pill idle">未开始</span></div><span class="d">膝关节预设和剂量计算，结果和原 MATLAB 一致。</span></div></li>
-        <li><div><div class="row"><b>6. 交互界面</b><span class="pill idle">未开始</span></div><span class="d">本地能演示的网页界面。</span></div></li>
-        <li><div><div class="row"><b>7. 补全文档</b><span class="pill idle">未开始</span></div><span class="d">算法说明、参数来源，新同事能独立上手。</span></div></li>
+        <li class="done"><div><div class="row"><b>1. 整理仓库</b><span class="pill ok">已完成</span></div><span class="d">第三方资料和大文件移到本地 references/，运行产物移到本地 outputs/，MATLAB 代码冻结到 legacy/。git 里只剩 72 个文件、2.4 MB（不含历史）。</span></div></li>
+        <li class="done"><div><div class="row"><b>2. 搭骨架</b><span class="pill ok">已完成</span></div><span class="d">Python 包 mcsim/ 和两个参数预设，依赖用 uv 管理。</span></div></li>
+        <li class="done"><div><div class="row"><b>3. 移植核心算法</b><span class="pill ok">已完成</span></div><span class="d">能量误差小于一亿分之一；单线程和并行结果逐位相同。10 万光子：皮肤全分辨率 7.9 秒，膝关节 2.5 秒。</span></div></li>
+        <li class="done"><div><div class="row"><b>4. 和 MATLAB 对比</b><span class="pill ok">已完成</span></div><span class="d">组织模型逐体素一致；各项结果都在 3σ 内。MATLAB 只有 2,000 光子的结果，建议补跑 10 万光子再确认一次。</span></div></li>
+        <li class="done"><div><div class="row"><b>5. 膝关节和剂量</b><span class="pill ok">已完成</span></div><span class="d">中心轴、圆面平均、圆面能量三种剂量算法，定义与原 MATLAB 一致。</span></div></li>
+        <li class="done"><div><div class="row"><b>6. 交互界面</b><span class="pill ok">已完成</span></div><span class="d">Streamlit 网页：调参数、看光分布、算剂量、导出结果。</span></div></li>
+        <li class="done"><div><div class="row"><b>7. 补全文档</b><span class="pill ok">已完成</span></div><span class="d">README 5 分钟上手、算法说明和验证结果（docs/algorithm.md）。</span></div></li>
       </ol>
     </section>
 

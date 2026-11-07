@@ -1,6 +1,6 @@
 # Monte Carlo 光传输仿真：代码库重构指南
 
-> 分支：`refactor/python-interactive`　|　日期：2026-11-07　|　状态：阶段 1 已完成（2026-11-07），阶段 2 待开始
+> 分支：`refactor/python-interactive`　|　日期：2026-11-07　|　状态：阶段 1–7 已完成（2026-11-07）
 > 本文既是本项目的重构说明，也可作为「科研原型代码 → 可维护工程」的通用模板（见第 9 节）。
 
 ---
@@ -196,13 +196,13 @@ __pycache__/
 
 | 阶段 | 内容 | 产出 |
 |---|---|---|
-| 1. 整理仓库 ✓ | 按第 4 节搬移/删除文件，加 `.gitignore`、README 骨架 | 已完成 2026-11-07：git 跟踪 68 个文件、2.4 MB；第三方资料在本地 `references/`，运行产物在本地 `outputs/` |
-| 2. 搭骨架 | `pyproject.toml`、包结构、配置格式、预设 YAML | 可 import 的空包 |
-| 3. 移植内核 | `kernel.py` + `runner.py` + `results.py`，先跑通皮肤预设 | 能量守恒测试通过 |
-| 4. 对比验证 | 在 MATLAB 侧跑固定参数基准，写入测试 | MATLAB 对比测试通过 |
-| 5. 膝关节 + 剂量 | 膝关节预设、`analysis.py` | 剂量曲线与原 `main.m` 一致 |
-| 6. 交互界面 | Streamlit 应用 | 可本地演示 |
-| 7. 文档 | README、`algorithm.md`、`optical_parameters.md` | 新人可独立上手 |
+| 1. 整理仓库 ✓ | 按第 4 节搬移/删除文件，加 `.gitignore`、README 骨架 | 已完成 2026-11-07：git 跟踪 72 个文件、2.4 MB；第三方资料在本地 `references/`，运行产物在本地 `outputs/` |
+| 2. 搭骨架 ✓ | `pyproject.toml`、包结构、配置格式、预设 YAML | 已完成：`mcsim/`、`presets/`，uv 管理依赖 |
+| 3. 移植内核 ✓ | `kernel.py` + `runner.py` + `results.py`，先跑通皮肤预设 | 已完成：能量误差 < 10⁻⁸，单线程与并行逐位相同 |
+| 4. 对比验证 ✓ | 在 MATLAB 侧跑固定参数基准，写入测试 | 已完成：用现有 2,000 光子结果，全部在 3σ 内；建议补跑 10 万光子（见 `docs/algorithm.md` 第 7 节） |
+| 5. 膝关节 + 剂量 ✓ | 膝关节预设、`analysis.py` | 已完成：中心轴、圆面平均、圆面能量三种算法与 `main.m` 定义一致；无 MATLAB 数值基准可对 |
+| 6. 交互界面 ✓ | Streamlit 应用 | 已完成：`uv run streamlit run app/streamlit_app.py` |
+| 7. 文档 ✓ | README、`algorithm.md`、`optical_parameters.md` | 已完成：根目录 README 有 5 分钟上手步骤 |
 
 **协作约定**
 

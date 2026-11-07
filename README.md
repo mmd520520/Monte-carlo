@@ -4,12 +4,23 @@
 
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| 阶段 1（整理仓库）已完成；阶段 2（Python 骨架）待开始。分支 `refactor/python-interactive` | 光学实习生（GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-07 |
+| Python 版和交互界面可用（阶段 1–7 完成）；35 个测试通过。分支 `refactor/python-interactive` | 光学实习生（GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-07 |
+
+## 5 分钟上手
+
+需要 [uv](https://docs.astral.sh/uv/)（Python 环境管理工具，Mac 上 `brew install uv`）。
+
+```bash
+uv sync                                       # 安装依赖（第一次约 1 分钟）
+uv run streamlit run app/streamlit_app.py     # 打开交互界面：http://localhost:8501
+uv run mcsim run knee_980nm --dose 10 20 40   # 命令行：跑膝关节模型并打印剂量表
+uv run pytest                                 # 跑全部测试
+```
 
 ## 先看这三样
 
 1. **重构指南**：[docs/REFACTOR_GUIDE.md](docs/REFACTOR_GUIDE.md)。仓库现状、10 条原则、目标结构、分阶段计划。给不看代码的同事准备了网页版（见 [docs/README.md](docs/README.md)）。
-2. **能跑的代码**：目前是 MATLAB 版，冻结在 [legacy/matlab/](legacy/matlab/README.md)。Python 版按指南第 8 节分阶段迁移。
+2. **算法和验证结果**：[docs/algorithm.md](docs/algorithm.md)。每一步对应哪段代码、和 MATLAB 怎么对比的、还有哪些没确认。
 3. **第三方资料清单**：[references/README.md](references/README.md)。开源程序、论文和数据集的版本、许可和下载地址；文件本身只在本地。
 
 ## 目录地图
@@ -21,7 +32,11 @@
 | [references/](references/README.md) | 第三方资料：MCX、MMC、MCML、安装包、论文、数据集、解剖图谱 | 只有 README；文件在本地 |
 | `outputs/` | 运行产物：结果图、`.mat` 数据、核验记录 | 否，只在本地 |
 | `slides/` | 分享 PPT；含个人信息和内部材料 | 否，只在本地（`.git/info/exclude`） |
-| 规划中：`mcsim/` `presets/` `app/` `tests/` | Python 仿真包、参数预设、交互界面、自动测试 | 阶段 2 起 |
+| [mcsim/](mcsim/README.md) | Python 仿真包：几何、内核、并行、结果、剂量、画图 | 是 |
+| [presets/](presets/README.md) | 参数预设（皮肤 500 nm、膝关节 980 nm），每个数字带出处 | 是 |
+| [app/](app/README.md) | Streamlit 交互界面 | 是 |
+| [tests/](tests/README.md) | 自动测试：能量守恒、物理极限、可复现、MATLAB 对比、界面 | 是 |
+| [tools/](tools/README.md) | 一次性脚本（提取 MATLAB 基准） | 是 |
 
 ## 写作约定（这个仓库也是 AI 时代写作方式的示范）
 
