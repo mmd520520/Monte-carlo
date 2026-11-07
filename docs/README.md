@@ -4,7 +4,7 @@
 
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| 重构指南已完成；算法和参数说明待写 | 光学实习生、Eden Huang | 2026-11-07 |
+| 重构指南、迁移指南已完成；算法说明待写 | 光学实习生、Eden Huang | 2026-11-07 |
 
 ## 里面有什么
 
@@ -12,8 +12,9 @@
 |---|---|
 | [REFACTOR_GUIDE.md](REFACTOR_GUIDE.md) | 重构指南：现状诊断、10 条原则、目标结构、文件处置、代码映射、验收标准、执行计划，以及可复用的清单 |
 | [REFACTOR_GUIDE_web.html](REFACTOR_GUIDE_web.html) | 网页版重构指南，给不看代码的同事和新手：蒙特卡洛小演示、名词小抄、上手步骤、通用清单。在线版：https://claude.ai/artifact/2PBhj8w4hQ4e2mT3RvH1qD（私有链接，需分享后他人才能打开） |
-| `algorithm.md`（待写） | 算法说明，整合根目录的流程图和简介 PDF |
-| `optical_parameters.md`（待写） | 组织光学参数和文献出处，整合 `matlab/5demo/光学参数文献_原说明.md` |
+| [assets/](assets/README.md) | 流程图和实习生的综述 PDF |
+| `algorithm.md`（待写） | 算法说明，以 assets/ 里的流程图和综述为素材 |
+| [optical_parameters.md](optical_parameters.md) | 膝关节模型 980 nm 光学参数的文献出处和假设（实习生原文，从 5demo 移来）；阶段 2 整理进 `presets/` |
 
 ## 怎么用
 
@@ -22,7 +23,7 @@
 
 ## 更新记录
 
-- 2026-11-07：新增 REFACTOR_GUIDE.md 和网页版。
+- 2026-11-07：新增 REFACTOR_GUIDE.md 和网页版；阶段 1 移入 assets/ 和 optical_parameters.md。
 
 ## 给 AI 的说明
 

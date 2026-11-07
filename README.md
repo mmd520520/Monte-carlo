@@ -4,27 +4,24 @@
 
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| 重构中（MATLAB 原型 → Python 工具），分支 `refactor/python-interactive` | 光学实习生（GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-07 |
+| 阶段 1（整理仓库）已完成；阶段 2（Python 骨架）待开始。分支 `refactor/python-interactive` | 光学实习生（GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-07 |
 
 ## 先看这三样
 
-1. **重构指南**：[docs/REFACTOR_GUIDE.md](docs/REFACTOR_GUIDE.md)。仓库现状、10 条原则、目标结构、分阶段计划。给不看代码的同事准备了网页版（链接见 [docs/README.md](docs/README.md)）。
-2. **分享材料**：PPT 和内部培训材料只保存在本地 `slides/` 文件夹，不进公开仓库。
-3. **能跑的代码**：目前是 MATLAB 版，在 [matlab/](matlab/README.md)。Python 版按指南第 8 节分阶段迁移。
+1. **重构指南**：[docs/REFACTOR_GUIDE.md](docs/REFACTOR_GUIDE.md)。仓库现状、10 条原则、目标结构、分阶段计划。给不看代码的同事准备了网页版（见 [docs/README.md](docs/README.md)）。
+2. **能跑的代码**：目前是 MATLAB 版，冻结在 [legacy/matlab/](legacy/matlab/README.md)。Python 版按指南第 8 节分阶段迁移。
+3. **第三方资料清单**：[references/README.md](references/README.md)。开源程序、论文和数据集的版本、许可和下载地址；文件本身只在本地。
 
 ## 目录地图
 
-| 文件夹 | 是什么 | 归属 |
+| 文件夹 | 是什么 | 在 git 里吗 |
 |---|---|---|
-| [docs/](docs/README.md) | 重构指南、算法和参数说明 | 自有 |
-| `slides/`（仅本地） | 所有 PPT，按场次分文件夹；含个人信息和内部材料，已在本地忽略 | 自有，不公开 |
-| [matlab/](matlab/README.md) | MATLAB 原型：皮肤血管（2demo）、膝关节（5demo） | 自有，将冻结到 `legacy/` |
-| [head/](head/README.md) | 头部体素模型和可视化脚本 | 自有脚本 + 外部数据 |
-| `MCX/` `MMC/` | 开源 GPU / 网格 MC 程序源码，各自带 README | 第三方，将移出 git |
-| [MCML/](MCML/README.md) | 经典分层 MC 程序（C 语言） | 第三方，将移出 git |
-| [MCXStudio-win64-v2025.10/](MCXStudio-win64-v2025.10/README.md) | MCX 的 Windows 图形界面安装包 | 第三方，将移出 git |
-| `knee-2016-09/` | 膝关节解剖图谱（3D Slicer），自带 README | 第三方，将移出 git |
-| 根目录的 `.zip` 和 `.pdf` | 文献、数据集、重复压缩包 | 见指南 4.2 节的处置表 |
+| [docs/](docs/README.md) | 重构指南（含网页版）、参数说明、流程图 | 是 |
+| [legacy/](legacy/README.md) | 冻结的 MATLAB 原型：皮肤（2demo）、膝关节（5demo）、头部图谱可视化（head） | 是，只读 |
+| [references/](references/README.md) | 第三方资料：MCX、MMC、MCML、安装包、论文、数据集、解剖图谱 | 只有 README；文件在本地 |
+| `outputs/` | 运行产物：结果图、`.mat` 数据、核验记录 | 否，只在本地 |
+| `slides/` | 分享 PPT；含个人信息和内部材料 | 否，只在本地（`.git/info/exclude`） |
+| 规划中：`mcsim/` `presets/` `app/` `tests/` | Python 仿真包、参数预设、交互界面、自动测试 | 阶段 2 起 |
 
 ## 写作约定（这个仓库也是 AI 时代写作方式的示范）
 
@@ -45,3 +42,4 @@
 - 项目全貌以 `docs/REFACTOR_GUIDE.md` 为准；本文件只做导航，两者冲突时改本文件。
 - 新增文件夹时同步更新上面的“目录地图”，并在新文件夹里按约定写 README.md。
 - 仓库是**公开**的：个人信息、未公开的数据和内部材料一律只放本地（`slides/` 已通过 `.git/info/exclude` 忽略），不要提交。
+- `references/`、`outputs/` 已被 `.gitignore` 忽略；第三方文件和运行产物不要提交。

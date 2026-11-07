@@ -1,6 +1,6 @@
 # Monte Carlo 光传输仿真：代码库重构指南
 
-> 分支：`refactor/python-interactive`　|　日期：2026-11-07　|　状态：方案已定，待执行
+> 分支：`refactor/python-interactive`　|　日期：2026-11-07　|　状态：阶段 1 已完成（2026-11-07），阶段 2 待开始
 > 本文既是本项目的重构说明，也可作为「科研原型代码 → 可维护工程」的通用模板（见第 9 节）。
 
 ---
@@ -118,9 +118,13 @@ monte-carlo/
 | `论文.zip`、`Parameter_paper*.pdf/zip` | 移到团队网盘，`references/README.md` 列出文献清单 + 链接 | 压缩包不可检索；数据集太大 |
 | `knee-2016-09/`、`head/head_atlas_3d.html` | 移到网盘，保留链接 | 当前仿真未使用 |
 
+> **执行情况（2026-11-07）：** 第三方资料和大文件已移出 git，暂存在本地 `references/`（清单见 `references/README.md`），共享盘链接待补。
+>
 > **说明：** 以上只在新分支上整理，git 历史中的旧文件仍在。如需真正缩小仓库体积（历史 385 MB），需另行用 `git filter-repo` 改写历史，属于不可逆操作，须团队确认后单独执行。
 
 ### 4.3 新增 `.gitignore`
+
+已执行；实际内容以仓库根目录的 `.gitignore` 为准，下面是初稿。
 
 ```gitignore
 # 仿真结果
@@ -192,7 +196,7 @@ __pycache__/
 
 | 阶段 | 内容 | 产出 |
 |---|---|---|
-| 1. 整理仓库 | 按第 4 节搬移/删除文件，加 `.gitignore`、README 骨架 | 仓库 < 5 MB（不含历史） |
+| 1. 整理仓库 ✓ | 按第 4 节搬移/删除文件，加 `.gitignore`、README 骨架 | 已完成 2026-11-07：git 跟踪 68 个文件、2.4 MB；第三方资料在本地 `references/`，运行产物在本地 `outputs/` |
 | 2. 搭骨架 | `pyproject.toml`、包结构、配置格式、预设 YAML | 可 import 的空包 |
 | 3. 移植内核 | `kernel.py` + `runner.py` + `results.py`，先跑通皮肤预设 | 能量守恒测试通过 |
 | 4. 对比验证 | 在 MATLAB 侧跑固定参数基准，写入测试 | MATLAB 对比测试通过 |

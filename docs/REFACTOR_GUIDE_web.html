@@ -222,7 +222,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
     <ol>
       <li><a href="#what">一分钟看懂蒙特卡洛</a></li>
       <li><a href="#terms">名词小抄</a></li>
-      <li><a href="#now">现在的仓库</a></li>
+      <li><a href="#now">整理前的仓库</a></li>
       <li><a href="#principles">十条原则</a></li>
       <li><a href="#after">整理后的样子</a></li>
       <li><a href="#moves">每个文件去哪</a></li>
@@ -241,7 +241,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
       <h1>蒙特卡洛仓库重构指南</h1>
       <p class="lede">我们要把散落的 MATLAB 原型和一大堆资料，整理成一个谁都能直接用的 Python 工具。这一页写给所有人：不写代码也能看懂我们在做什么、为什么这样做，以及你可以怎么参与。</p>
       <div class="meta">
-        <span class="chip accent">方案已定 · 第 1 阶段待开始</span>
+        <span class="chip accent">第 1 阶段已完成 · 第 2 阶段待开始</span>
         <span class="chip">分支 refactor/python-interactive</span>
         <span class="chip">更新于 2026-11-07</span>
       </div>
@@ -269,7 +269,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
           <div class="sim-side">
             <div>
               <b>在浏览器里试一试</b>
-              <p class="small muted" style="margin:0.25rem 0 0">示意模型：空气、表皮、真皮和一根血管。参数是为了演示调过的，不是真实值。真实的仿真在仓库的 <code>matlab/2demo</code> 里。</p>
+              <p class="small muted" style="margin:0.25rem 0 0">示意模型：空气、表皮、真皮和一根血管。参数是为了演示调过的，不是真实值。真实的仿真在仓库的 <code>legacy/matlab/2demo</code> 里。</p>
             </div>
             <div class="btn-row">
               <button class="primary" id="run" type="button">再发射 2000 个光子</button>
@@ -317,7 +317,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
 
     <section id="now">
       <p class="eyebrow">03 · 现状</p>
-      <h2>现在的仓库：863 MB 里，自己写的代码只有 2.1 MB</h2>
+      <h2>整理前的仓库：863 MB 里，自己写的代码只有 2.1 MB</h2>
       <p class="prose">实习生把收集到的东西都放进了同一个仓库，包括开源程序、安装包、论文和数据。真正属于我们的仿真代码只占大约 0.25%。下面是各部分的体积（不含 385 MB 的修改历史）。</p>
       <div class="bars" role="img" aria-label="仓库各部分体积条形图：解剖模型 127 MB，文献 95，安装包 88，数据集 68，第三方源码 54，重复压缩包 48，自己写的代码 2.1">
         <div class="bar"><span>解剖模型（未使用）</span><div class="track"><div class="fill" style="width:100%"></div></div><b>127</b></div>
@@ -329,6 +329,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
         <div class="bar own"><span>自己写的代码</span><div class="track"><div class="fill" style="width:1.7%"></div></div><b>2.1</b></div>
       </div>
       <p class="small muted">单位 MB。“重复的压缩包”是把 MCX、MMC、MCML 三个文件夹又打包了一遍。</p>
+      <div class="callout ok"><strong>已整理（2026-11-07）：</strong>第三方资料移到本地 <code>references/</code>（清单和下载地址见 <code>references/README.md</code>），运行产物移到本地 <code>outputs/</code>。git 里只剩 68 个文件、2.4 MB。</div>
 
       <h3>自己写的代码，有哪些地方不好用</h3>
       <div class="table-wrap">
@@ -444,7 +445,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
           <p>整理工作在单独的分支上进行。这个分支目前还在本地，推送到 GitHub 之后，运行：</p>
           <div class="cmd"><pre>cd Monte-carlo
 git checkout refactor/python-interactive</pre><button type="button" data-copy>复制</button></div>
-          <p class="small muted">做完是什么样子：文件夹里出现 <code>README.md</code>、<code>docs/</code> 和 <code>slides/</code>。</p>
+          <p class="small muted">做完是什么样子：文件夹里出现 <code>README.md</code>、<code>docs/</code> 和 <code>legacy/</code>。</p>
         </li>
         <li>
           <h3>先读 README <span class="pill ok">现在可做</span></h3>
@@ -452,7 +453,7 @@ git checkout refactor/python-interactive</pre><button type="button" data-copy>�
         </li>
         <li>
           <h3>跑 MATLAB 示例 <span class="pill ok">现在可做</span></h3>
-          <p>需要 MATLAB。打开 MATLAB，把当前文件夹切到 <code>matlab/2demo</code>（皮肤模型），在命令行输入 <code>main</code> 回车。</p>
+          <p>需要 MATLAB。打开 MATLAB，把当前文件夹切到 <code>legacy/matlab/2demo</code>（皮肤模型），在命令行输入 <code>main</code> 回车。</p>
           <p class="small muted">第一次先把 <code>main.m</code> 里的 <code>photonCount</code> 改成 2000，几秒钟就能看到结果图。没有并行计算工具箱的话，把 <code>options.useParallel</code> 改成 <code>false</code>。</p>
         </li>
         <li>
@@ -496,8 +497,8 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
       <p class="prose">每个阶段结束时都能运行，单独提交审阅后再进入下一步。</p>
       <ol class="timeline">
         <li class="done"><div><div class="row"><b>0. 写方案</b><span class="pill ok">已完成</span></div><span class="d">重构指南、这个网页、每个文件夹的 README；分享材料整理在本地。</span></div></li>
-        <li class="now"><div><div class="row"><b>1. 整理仓库</b><span class="pill next">下一步</span></div><span class="d">按“每个文件去哪”搬移和删除，设置哪些文件不再提交。做完后仓库文件不到 5 MB（不含历史）。</span></div></li>
-        <li><div><div class="row"><b>2. 搭骨架</b><span class="pill idle">未开始</span></div><span class="d">建好 Python 包的结构和参数配置格式，写好两个预设文件。</span></div></li>
+        <li class="done"><div><div class="row"><b>1. 整理仓库</b><span class="pill ok">已完成</span></div><span class="d">第三方资料和大文件移到本地 references/，运行产物移到本地 outputs/，MATLAB 代码冻结到 legacy/。git 里只剩 68 个文件、2.4 MB（不含历史）。</span></div></li>
+        <li class="now"><div><div class="row"><b>2. 搭骨架</b><span class="pill next">下一步</span></div><span class="d">建好 Python 包的结构和参数配置格式，写好两个预设文件。</span></div></li>
         <li><div><div class="row"><b>3. 移植核心算法</b><span class="pill idle">未开始</span></div><span class="d">先跑通皮肤模型，通过能量守恒检查。</span></div></li>
         <li><div><div class="row"><b>4. 和 MATLAB 对比</b><span class="pill idle">未开始</span></div><span class="d">在 MATLAB 里跑一组固定参数作为标准答案，写进自动检查。</span></div></li>
         <li><div><div class="row"><b>5. 膝关节和剂量</b><span class="pill idle">未开始</span></div><span class="d">膝关节预设和剂量计算，结果和原 MATLAB 一致。</span></div></li>

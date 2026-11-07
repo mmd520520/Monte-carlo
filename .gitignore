@@ -1,4 +1,27 @@
+# 运行产物：运行就能重新生成，不提交（本地放在 outputs/）
+outputs/
+results/
+*.mat
+!legacy/matlab/head/fullhead_atlas.mat
+*.asv
+*.ps
+legacy/matlab/**/*.png
+legacy/matlab/**/spot_size_results*/
+legacy/matlab/**/deepth/
 
-# MATLAB generated results
-matlab/**/*mc_results.mat
-matlab/**/*.asv
+# 第三方资料和大文件：只放本地 references/，清单和下载地址见 references/README.md
+references/*
+!references/README.md
+
+# 不提交的文件类型
+*.zip
+*.exe
+*.dll
+*.bak
+
+# 环境和系统文件
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+*.fig
