@@ -1,0 +1,47 @@
+# 皮肤血管模型，500 nm。数值逐项取自 legacy/matlab/2demo（Tissue.m、Tissue _optical_parameters.m、Light_T.m）。
+name: skin_500nm
+title: 皮肤血管模型（500 nm）
+based_on: legacy/matlab/2demo
+length_unit: mm          # 本文件所有长度用 mm，系数用 1/mm
+display_unit: mm
+
+geometry:
+  type: skin
+  shape: [400, 400, 400]   # 体素个数 nx, ny, nz
+  voxel: 0.010             # 体素边长 10 μm
+  surface_z: 1.0           # 空气/皮肤表面深度
+  epidermis_thickness: 0.100
+  vessel:
+    x: 0.0
+    z: null                # null = 网格中心深度（MATLAB: Nz/2*dz = 2.0 mm）
+    radius: 0.5
+  stride: 1                # >1 时每 stride 个体素取一个（MATLAB smokeTest 用 10）
+
+tissues:
+  - {label: 1, name: 空气, mua: 0.0, mus: 0.0, g: 0.0, n: 1.0, source: 按无吸收、无散射处理}
+  - {label: 3, name: 血液, mua: 11.20, musp: 1.00, g: 0.90, n: 1.4,
+     source: "原 MATLAB 参数文件，未注明文献；g、n 为假设"}
+  - {label: 4, name: 真皮, mua: 0.02241645, musp: 4.24, g: 0.90, n: 1.4,
+     source: "原 MATLAB 参数文件，未注明文献；g、n 为假设"}
+  - {label: 5, name: 表皮, mua: 2.03701875, musp: 2.00, g: 0.90, n: 1.4,
+     source: "原 MATLAB 参数文件，未注明文献；g、n 为假设"}
+
+source:
+  wavelength_nm: 500
+  diameter: 1.0            # 皮肤表面上的圆形光斑直径
+  x: 0.0
+  y: 0.0
+  theta_deg: 0.0           # 空气中入射角，0 = 垂直
+  phi_deg: 0.0             # 方位角，0 朝 +x
+  launch_from_air: false   # 从表皮内发射，镜面反射按 Fresnel 预先扣除
+  entry_label: 5           # 入射面下方是表皮
+
+run:
+  photons: 10000
+  seed: 1
+  batch_size: 5000
+  workers: 1
+
+notes:
+  - 光学参数沿用原 MATLAB 文件，文件中没有文献出处，需要补。
+  - 全分辨率 400³ 体素约占 0.5 GB 内存；交互界面默认 stride=4（100³，40 μm）。
