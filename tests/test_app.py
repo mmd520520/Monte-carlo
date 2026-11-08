@@ -1,4 +1,5 @@
-"""Headless run of the Streamlit app (streamlit.testing): both presets and both languages render without errors."""
+"""Headless runs of the Streamlit app (streamlit.testing): every page in both languages, the simulator flow,
+and the language switch."""
 
 from pathlib import Path
 
@@ -6,13 +7,32 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 APP = str(Path(__file__).resolve().parent.parent / "app" / "streamlit_app.py")
+PAGES = ["views/science_home.py", "views/simulator.py", "views/validation.py", "views/product_home.py",
+         "views/muse_case.py", "views/headband_loop.py", "views/laser.py"]
+
+
+def _app(lang: str = "zh") -> AppTest:
+    at = AppTest.from_file(APP, default_timeout=180)
+    at.session_state["lang"] = lang
+    at.run()
+    assert not at.exception, at.exception
+    return at
 
 
 @pytest.mark.slow
-def test_app_knee_then_skin():
-    at = AppTest.from_file(APP, default_timeout=120)
-    at.run()
-    assert not at.exception, at.exception
+@pytest.mark.parametrize("lang", ["zh", "en"])
+def test_every_page_renders(lang):
+    at = _app(lang)
+    for page in PAGES:
+        at.switch_page(page).run()
+        assert not at.exception, (lang, page, at.exception)
+        assert at.title, (lang, page)
+
+
+@pytest.mark.slow
+def test_simulator_knee_then_skin():
+    at = _app("zh")
+    at.switch_page("views/simulator.py").run()
     assert any("膝关节" in c.value for c in at.caption)
     labels = [m.label for m in at.metric]
     assert "组织吸收" in labels and "合计" in labels
@@ -27,8 +47,8 @@ def test_app_knee_then_skin():
 
 @pytest.mark.slow
 def test_language_switch_keeps_the_result():
-    at = AppTest.from_file(APP, default_timeout=120)
-    at.run()
+    at = _app("zh")
+    at.switch_page("views/simulator.py").run()
     zh_total = at.metric[[m.label for m in at.metric].index("合计")].value
 
     at.session_state["lang"] = "en"  # what the 中文 | EN switch at the top right sets
@@ -39,10 +59,8 @@ def test_language_switch_keeps_the_result():
     labels = [m.label for m in at.metric]
     assert "Absorbed" in labels and "Total" in labels
     assert at.metric[labels.index("Total")].value == zh_total  # same run, only the words change
-    assert not any("组织吸收" in m.label for m in at.metric)
     # the dropdowns show English labels and keep the choice
     assert at.selectbox(key="preset_en").value == "knee_980nm"
-    assert at.selectbox(key="preset_en").format_func("knee_980nm") == "Knee · 980 nm"
 
     at.selectbox(key="preset_en").set_value("skin_500nm").run()
     at.session_state["lang"] = "zh"

@@ -1,6 +1,7 @@
 # 运行产物：运行就能重新生成，不提交（本地放在 outputs/）
 outputs/
 project/private/
+rd_medical/
 results/
 *.mat
 !legacy/matlab/head/fullhead_atlas.mat

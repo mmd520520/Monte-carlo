@@ -11,13 +11,13 @@ dependencies = [
     "pyyaml>=6.0",
     "plotly>=5.20",
     "streamlit>=1.35",
+    "iadpython>=0.5.3",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.0",
     "h5py>=3.10",
-    "iadpython>=0.5.3",
 ]
 
 [project.scripts]

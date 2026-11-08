@@ -2,7 +2,7 @@
 # 推送保护（由 tools/sync_private.sh 安装到 .git/hooks/pre-push）。
 # 只有 git config mcsim.privateRemotes 里登记的远程，才能收到：
 #   - private/* 分支
-#   - 文件里含 project/private/、internal/、slides/、outputs/ 或 references/ 下（README.md 以外）文件的提交
+#   - 文件里含 project/private/、rd_medical/、internal/、slides/、outputs/ 或 references/ 下（README.md 以外）文件的提交
 remote=$1
 allowed=" $(git config --get mcsim.privateRemotes || true) "
 [[ $allowed == *" $remote "* ]] && exit 0
@@ -21,9 +21,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     commits=$(git rev-list "$local_sha" --not --remotes="$remote")
   fi
   for c in $commits; do
-    if [[ -n $(git ls-tree --name-only "$c" -- project/private internal slides outputs) ]] ||
+    if [[ -n $(git ls-tree --name-only "$c" -- project/private rd_medical internal slides outputs) ]] ||
        git ls-tree --name-only "$c" references/ | grep -qv '^references/README.md$'; then
-      echo "pre-push：$local_ref 的提交 ${c:0:7} 含不能公开的文件（project/private/、internal/、slides/、outputs/、references/），拒绝推送到 $remote" >&2
+      echo "pre-push：$local_ref 的提交 ${c:0:7} 含不能公开的文件（project/private/、rd_medical/、internal/、slides/、outputs/、references/），拒绝推送到 $remote" >&2
       status=1; break
     fi
   done

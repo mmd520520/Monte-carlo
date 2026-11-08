@@ -15,19 +15,20 @@ uv run mcsim run knee_980nm --dose 10 20 40 # 命令行
 
 ## 目录
 
-`mcsim/` 引擎 · `presets/` 参数预设 · `app/` 界面 · `tests/` 测试 · `docs/` 技术文档 · `project/` 项目资料（`public/` 进 git，`private/` 不进）· `legacy/` 原 MATLAB · `tools/` 脚本 · `tutorial/` 协作教程。各文件夹的 README.md 有详细说明。
+`mcsim/` 引擎 · `presets/` 参数预设 · `app/` 界面（科普 + 产品两部分，页面在 `app/views/`，长文字在 `app/content/`）· `tests/` 测试 · `docs/` 技术文档 · `project/` 项目资料（`public/` 进 git，`private/` 不进）· `legacy/` 原 MATLAB · `tools/` 脚本 · `tutorial/` 协作教程。各文件夹的 README.md 有详细说明。
 
 ## 约定
 
 - 先读根目录 README.md 和相关文件夹的 README.md，再动手；遵守各 README 的“给 AI 的说明”。
 - 改物理内核必须跑通全部测试；改光学参数必须同时写出处（`source` 和 `source_en`）。
-- 界面文字只放 `mcsim/i18n.py`，中英各一份。
+- 界面文字：短的放 `mcsim/i18n.py`，长的放 `app/content/`，都要中英各一份。
+- 产品部分只用公开信息；内部内容放 `project/private/app/`，由界面在本地读取。
 - 提交说明：`类型: 做了什么`（feat / fix / docs / test / chore），下面写为什么。
 - 数字（验证结果、速度、体积）来自实际运行；重测后更新，不要估算。
 
 ## 隐私和安全
 
-- 这是公开仓库。`project/private/`、`references/`、`outputs/` 不进 git，内容不能出现在代码、公开文档或提交说明里。判断规则见 `project/README.md`。
+- 这是公开仓库。`project/private/`、`rd_medical/`、`references/`、`outputs/` 不进 git，内容不能出现在代码、公开文档或提交说明里。判断规则见 `project/README.md`。
 - 推送前检查：`tools/pre-push`（安装见 `tools/README.md`），不要绕过。
 - 不要把密码、密钥写进任何文件。
 

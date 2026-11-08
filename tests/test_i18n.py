@@ -38,3 +38,21 @@ def test_presets_have_english_text(name):
 def test_tr_fills_placeholders():
     assert tr("diameter", "en", unit="cm") == "Beam diameter [cm]"
     assert tr("diameter", "zh", unit="cm") == "光斑直径 [cm]"
+
+
+CONTENT = __import__("pathlib").Path(__file__).resolve().parents[1] / "app" / "content"
+
+
+def test_content_files_in_both_languages():
+    zh = {p.name.removesuffix(".zh.md") for p in CONTENT.glob("*.zh.md")}
+    en = {p.name.removesuffix(".en.md") for p in CONTENT.glob("*.en.md")}
+    assert zh and zh == en, f"only one language: {sorted(zh ^ en)}"
+
+
+def test_papers_have_both_languages_and_links():
+    import yaml
+
+    for section in yaml.safe_load((CONTENT / "papers.yaml").read_text(encoding="utf-8")).values():
+        for p in section:
+            assert p["zh"] and p["en"] and p["tool_zh"] and p["tool_en"], p["title"]
+            assert p["link"].startswith("https://"), p["title"]

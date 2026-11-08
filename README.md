@@ -4,7 +4,7 @@
 
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| Python 版和交互界面可用（阶段 1–7 完成）；45 个测试通过，物理结果已与独立方法（加倍法）核对，不需要 MATLAB。分支 `refactor/python-interactive` | 马孟帝（光学研究员，GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-07 |
+| Python 版和交互界面可用（阶段 1–7 完成）；49 个测试通过，物理结果已与独立方法（加倍法）核对，不需要 MATLAB。分支 `refactor/python-interactive` | 马孟帝（光学研究员，GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-07 |
 
 ## 5 分钟上手
 
@@ -35,7 +35,7 @@ uv run pytest                                 # 跑全部测试
 | `outputs/` | 运行产物：结果图、`.mat` 数据、核验记录 | 否，只在本地 |
 | [mcsim/](mcsim/README.md) | Python 仿真包：几何、内核、并行、结果、剂量、画图 | 是 |
 | [presets/](presets/README.md) | 参数预设（皮肤 500 nm、膝关节 980 nm），每个数字带出处 | 是 |
-| [app/](app/README.md) | Streamlit 交互界面，中英双语 | 是 |
+| [app/](app/README.md) | 交互界面，中英双语：科普（论文、仿真、验证）+ 产品（从研发到产品、Muse 案例、脑环闭环设计、康复激光） | 是 |
 | [tests/](tests/README.md) | 自动测试：能量守恒、物理极限、与独立方法（加倍法）对比、可复现、MATLAB 对比、界面 | 是 |
 | [tools/](tools/README.md) | 一次性脚本：提取 MATLAB 基准；推送保护 | 是 |
 | [tutorial/](tutorial/README.md) | AI 时代的研发协作教程，以这个项目为例：分工、git、文档、隐私、分享、新项目模板 | 是 |

@@ -1,0 +1,1 @@
+Pick a scenario and assemble the headband loop you want: which sensors, how the user gets feedback, how the light is adjusted. The page draws the loop and lists **the questions this design raises for R&D**; those questions are the next work list for R&D and medical affairs. Download it as one Markdown page to take to a discussion.

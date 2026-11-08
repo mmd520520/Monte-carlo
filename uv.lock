@@ -362,6 +362,7 @@ name = "mcsim"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "iadpython" },
     { name = "numba" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
@@ -375,12 +376,12 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "h5py" },
-    { name = "iadpython" },
     { name = "pytest" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "iadpython", specifier = ">=0.5.3" },
     { name = "numba", specifier = ">=0.60" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "plotly", specifier = ">=5.20" },
@@ -392,7 +393,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "h5py", specifier = ">=3.10" },
-    { name = "iadpython", specifier = ">=0.5.3" },
     { name = "pytest", specifier = ">=8.0" },
 ]
 

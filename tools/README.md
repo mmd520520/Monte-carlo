@@ -28,7 +28,7 @@ cp tools/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 
 装好后，推送前会检查两件事，任何一条不满足就整个推送取消：
 
-- 要推上去的每个提交（不只是最新的）里都没有 `project/private/`、`internal/`、`slides/`、`outputs/`，`references/` 里只有 `README.md`。
+- 要推上去的每个提交（不只是最新的）里都没有 `project/private/`、`rd_medical/`、`internal/`、`slides/`、`outputs/`，`references/` 里只有 `README.md`。
 - 不推 `private/*` 分支。
 
 只有登记过的私有远程不受限制：`git config mcsim.privateRemotes "远程名"`。
