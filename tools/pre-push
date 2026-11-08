@@ -9,16 +9,24 @@ allowed=" $(git config --get mcsim.privateRemotes || true) "
 
 zero=0000000000000000000000000000000000000000
 status=0
-while read -r local_ref local_sha remote_ref _; do
+while read -r local_ref local_sha remote_ref remote_sha; do
   [[ $local_sha == "$zero" ]] && continue
   if [[ $remote_ref == refs/heads/private/* ]]; then
     echo "pre-push：$remote 不是登记的私有远程，拒绝推送 $remote_ref" >&2; status=1; continue
   fi
-  if [[ -n $(git ls-tree --name-only "$local_sha" -- internal slides outputs) ]] ||
-     git ls-tree --name-only "$local_sha" references/ | grep -qv '^references/README.md$'; then
-    echo "pre-push：$local_ref 含不能公开的文件（internal/、slides/、outputs/、references/），拒绝推送到 $remote" >&2
-    status=1
+  # 检查这次要推上去的每一个提交，不只是最新的：中间的提交里有过的文件，推上去后在历史里一样看得到
+  if [[ $remote_sha != "$zero" ]] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    commits=$(git rev-list "$local_sha" --not "$remote_sha" --remotes="$remote")
+  else
+    commits=$(git rev-list "$local_sha" --not --remotes="$remote")
   fi
+  for c in $commits; do
+    if [[ -n $(git ls-tree --name-only "$c" -- internal slides outputs) ]] ||
+       git ls-tree --name-only "$c" references/ | grep -qv '^references/README.md$'; then
+      echo "pre-push：$local_ref 的提交 ${c:0:7} 含不能公开的文件（internal/、slides/、outputs/、references/），拒绝推送到 $remote" >&2
+      status=1; break
+    fi
+  done
 done
 [[ $status == 0 ]] || echo "确认对方是私有仓库后，可登记：git config mcsim.privateRemotes \"$(echo $allowed $remote)\"" >&2
 exit $status
