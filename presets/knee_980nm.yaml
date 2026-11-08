@@ -2,6 +2,7 @@
 # 本文件用 cm 和 1/cm（与文献一致），载入时自动换算成 mm。
 name: knee_980nm
 title: 膝关节模型（980 nm）
+title_en: Knee (980 nm)
 based_on: legacy/matlab/5demo
 length_unit: cm
 display_unit: cm
@@ -27,13 +28,17 @@ geometry:
   stride: 1
 
 tissues:
-  - {label: 1, name: 空气, mua: 0.0, mus: 0.0, g: 0.0, n: 1.0, source: 按无吸收、无散射处理}
-  - {label: 2, name: 软组织, mua: 0.60, musp: 6.10, g: 0.9, n: 1.4,
-     source: "以肌肉代替：Chaki 等 2023，表 1，980 nm，DOI 10.1002/jbio.202200283；g、n 为假设"}
-  - {label: 3, name: 髌骨, mua: 0.136666666666667, musp: 5.52, g: 0.9, n: 1.4,
-     source: "假设与胫骨 B 点相同，不是髌骨实测：Kothuri 2025，DOI 10.1038/s41598-025-06138-y；g、n 为假设"}
-  - {label: 4, name: 骨, mua: 0.136666666666667, musp: 5.52, g: 0.9, n: 1.4,
-     source: "Kothuri 2025，Zenodo 14170681 ABC.txt 胫骨 B 点 980 nm 三次重复均值：mua=(.14+.13+.14)/3，musp=(5.55+5.31+5.70)/3；DOI 10.1038/s41598-025-06138-y；g、n 为假设"}
+  - {label: 1, name: 空气, name_en: Air, mua: 0.0, mus: 0.0, g: 0.0, n: 1.0, source: 按无吸收、无散射处理,
+     source_en: Treated as non-absorbing and non-scattering}
+  - {label: 2, name: 软组织, name_en: Soft tissue, mua: 0.60, musp: 6.10, g: 0.9, n: 1.4,
+     source: "以肌肉代替：Chaki 等 2023，表 1，980 nm，DOI 10.1002/jbio.202200283；g、n 为假设",
+     source_en: "Muscle as a proxy: Chaki et al. 2023, Table 1, 980 nm, DOI 10.1002/jbio.202200283; g and n assumed"}
+  - {label: 3, name: 髌骨, name_en: Patella, mua: 0.136666666666667, musp: 5.52, g: 0.9, n: 1.4,
+     source: "假设与胫骨 B 点相同，不是髌骨实测：Kothuri 2025，DOI 10.1038/s41598-025-06138-y；g、n 为假设",
+     source_en: "Assumed equal to tibia point B, not measured on the patella: Kothuri 2025, DOI 10.1038/s41598-025-06138-y; g and n assumed"}
+  - {label: 4, name: 骨, name_en: Bone, mua: 0.136666666666667, musp: 5.52, g: 0.9, n: 1.4,
+     source: "Kothuri 2025，Zenodo 14170681 ABC.txt 胫骨 B 点 980 nm 三次重复均值：mua=(.14+.13+.14)/3，musp=(5.55+5.31+5.70)/3；DOI 10.1038/s41598-025-06138-y；g、n 为假设",
+     source_en: "Kothuri 2025, Zenodo 14170681 ABC.txt, tibia point B at 980 nm, mean of three repeats: mua=(.14+.13+.14)/3, musp=(5.55+5.31+5.70)/3; DOI 10.1038/s41598-025-06138-y; g and n assumed"}
 
 source:
   wavelength_nm: 980
@@ -56,3 +61,6 @@ run:
 notes:
   - 光源参数有三个版本：Light_T.m 为直径 8 cm、20 W（本文件采用）；README_简约版.txt 为直径 2.5 cm、0.1 W/cm²；光学参数原说明为直径 2 cm、0.1 W/cm²。待确认。
   - 光学参数是文献代理值和插值，不针对具体受试者校准。
+notes_en:
+  - The light source exists in three versions: Light_T.m uses an 8 cm diameter and 20 W (used here); README_简约版.txt uses 2.5 cm and 0.1 W/cm²; the original parameter notes use 2 cm and 0.1 W/cm². To be confirmed.
+  - Optical properties are literature proxies and interpolations, not calibrated to any subject.

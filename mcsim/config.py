@@ -34,6 +34,8 @@ class Tissue:
     g: float
     n: float
     source: str = ""
+    name_en: str = ""
+    source_en: str = ""
 
 
 @dataclass
@@ -77,6 +79,8 @@ class Preset:
     display_unit: str = "mm"
     notes: list[str] = field(default_factory=list)
     based_on: str = ""
+    title_en: str = ""
+    notes_en: list[str] = field(default_factory=list)
 
     def tissue(self, label: int) -> Tissue:
         for t in self.tissues:
@@ -117,6 +121,8 @@ def _tissue_from_yaml(item: dict[str, Any], to_mm: float) -> Tissue:
         g=g,
         n=float(item["n"]),
         source=str(item.get("source", "")),
+        name_en=str(item.get("name_en", "")),
+        source_en=str(item.get("source_en", "")),
     )
 
 
@@ -188,6 +194,8 @@ def load_preset(name_or_path: str | Path, **overrides: Any) -> Preset:
         display_unit=str(raw.get("display_unit", unit)),
         notes=list(raw.get("notes", [])),
         based_on=str(raw.get("based_on", "")),
+        title_en=str(raw.get("title_en", "")),
+        notes_en=list(raw.get("notes_en", [])),
     )
     validate(preset)
     return preset

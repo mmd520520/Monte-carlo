@@ -19,6 +19,7 @@
 - 散射写 `musp`（约化散射系数，文献常用）或 `mus`，二选一。
 - 每种组织必须写 `source`：文献、DOI 或“假设”。没有出处的数字不能进预设。
 - 有疑问的地方写进 `notes`，界面上会显示。
+- 界面是中英双语的：`title`、组织的 `name` 和 `source`、`notes` 各有对应的英文字段 `title_en`、`name_en`、`source_en`、`notes_en`。新增或修改时两边一起改，`tests/test_i18n.py` 会检查。
 
 ## 更新记录
 
