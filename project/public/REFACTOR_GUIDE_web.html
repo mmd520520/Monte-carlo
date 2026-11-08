@@ -241,7 +241,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
       <h1>蒙特卡洛仓库重构指南</h1>
       <p class="lede">我们要把散落的 MATLAB 原型和一大堆资料，整理成一个谁都能直接用的 Python 工具。这一页写给所有人：不写代码也能看懂我们在做什么、为什么这样做，以及你可以怎么参与。</p>
       <div class="meta">
-        <span class="chip accent">第 1–7 阶段已完成 · Python 版可用</span>
+        <span class="chip accent">第 1–13 阶段已完成 · Python 版可用 · 中英双语</span>
         <span class="chip">分支 refactor/python-interactive</span>
         <span class="chip">更新于 2026-11-07</span>
       </div>
@@ -503,8 +503,14 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
         <li class="done"><div><div class="row"><b>3. 移植核心算法</b><span class="pill ok">已完成</span></div><span class="d">能量误差小于一亿分之一；单线程和并行结果逐位相同。10 万光子：皮肤全分辨率 7.9 秒，膝关节 2.5 秒。</span></div></li>
         <li class="done"><div><div class="row"><b>4. 和 MATLAB 对比</b><span class="pill ok">已完成</span></div><span class="d">组织模型逐体素一致；各项结果都在 3σ 内。另外和独立的加倍法对比了 4 个平板算例，全部一致，所以不再需要 MATLAB。</span></div></li>
         <li class="done"><div><div class="row"><b>5. 膝关节和剂量</b><span class="pill ok">已完成</span></div><span class="d">中心轴、圆面平均、圆面能量三种剂量算法，定义与原 MATLAB 一致。</span></div></li>
-        <li class="done"><div><div class="row"><b>6. 交互界面</b><span class="pill ok">已完成</span></div><span class="d">Streamlit 网页：调参数、看光分布、算剂量、导出结果。</span></div></li>
+        <li class="done"><div><div class="row"><b>6. 交互界面</b><span class="pill ok">已完成</span></div><span class="d">Streamlit 网页：调参数、看光分布、算剂量、导出结果；后来扩展成科普和产品两部分（见第 11 步）。</span></div></li>
         <li class="done"><div><div class="row"><b>7. 补全文档</b><span class="pill ok">已完成</span></div><span class="d">README 5 分钟上手、算法说明和验证结果（docs/algorithm.md）。</span></div></li>
+        <li class="done"><div><div class="row"><b>8. 独立验证</b><span class="pill ok">已完成</span></div><span class="d">和加倍法（完全不同的算法）对比 4 块平板，全部一致；验证不再需要 MATLAB。</span></div></li>
+        <li class="done"><div><div class="row"><b>9. 中英双语</b><span class="pill ok">已完成</span></div><span class="d">界面右上角切换中文 / EN；中文里关键名词附英文。</span></div></li>
+        <li class="done"><div><div class="row"><b>10. 资料分层</b><span class="pill ok">已完成</span></div><span class="d">能公开的进仓库，敏感的放公司微盘；推送前自动检查，防止误传。</span></div></li>
+        <li class="done"><div><div class="row"><b>11. 科普 + 产品两部分</b><span class="pill ok">已完成</span></div><span class="d">科普：论文、仿真、验证。产品：从研发到产品、Muse 案例、脑环闭环设计、康复激光剂量试算。</span></div></li>
+        <li class="done"><div><div class="row"><b>12. GPU 加速调研</b><span class="pill ok">已完成</span></div><span class="d">MCX 在这台 Mac 的 GPU 上跑通：1,000 万光子 0.4 秒，结果和我们的引擎一致。接入还没开始。</span></div></li>
+        <li class="done"><div><div class="row"><b>13. 协作教程</b><span class="pill ok">已完成</span></div><span class="d">以这个项目为例：AI 时代怎么分工、用 git、写文档、管隐私、做分享（tutorial/）。</span></div></li>
       </ol>
     </section>
 
@@ -594,11 +600,9 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
         <table>
           <thead><tr><th>事项</th><th>默认方案</th><th>另一个选择</th></tr></thead>
           <tbody>
-            <tr><td>第三方资料放哪</td><td>移出仓库，放共享盘，留链接</td><td>留在 references/ 里，但不再新增</td></tr>
+            <tr><td>第三方资料放哪</td><td>已移出仓库；上传公司微盘、留链接（待做）</td><td>留在各人本地</td></tr>
             <tr><td>要不要清理修改历史来缩小体积</td><td>暂时不清理</td><td>用 git filter-repo 清理。不可撤销，所有人要重新下载</td></tr>
-            <tr><td>交互界面用什么做</td><td>Streamlit 网页界面</td><td>Jupyter 笔记本加滑块，或者两种都做</td></tr>
-            <tr><td>先移植哪个模型</td><td>先皮肤（简单，好核对），再膝关节</td><td>直接做膝关节</td></tr>
-            <tr><td>要不要接 MCX（显卡加速）</td><td>第二期再评估</td><td>用 pmcx 作为高性能后端</td></tr>
+            <tr><td>怎么接 MCX（显卡加速）</td><td>先在 Mac 上接成可选的计算方式（已验证可行）</td><td>采购带 NVIDIA 显卡的机器，批量计算时再定</td></tr>
           </tbody>
         </table>
       </div>
