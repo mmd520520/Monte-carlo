@@ -16,10 +16,10 @@
 | `third_party/MCXStudio-win64-v2025.10/` 及同名 `.zip` | MCX/MMC 的 Windows 图形界面安装包，含 `.exe` | 2025.10 | mcx.space |
 | `third_party/MCML_MCX_MMC_开源代码压缩包.zip` | 上面三个源码目录的压缩包 | — | 与目录内容重复，可删 |
 | `third_party/knee-2016-09/` | SPL 膝关节解剖图谱（3D Slicer 格式） | 3D Slicer License | 【上游地址待补】 |
-| `papers/论文.zip` | 41 篇蒙特卡洛与 NIRS 论文，实习生按主题分了文件夹 | 版权归原作者和期刊 | 实习生收集 |
+| `papers/论文.zip` | 41 篇蒙特卡洛与 NIRS 论文，马孟帝按主题分了文件夹 | 版权归原作者和期刊 | 马孟帝收集 |
 | `papers/Parameter_paper.pdf` | Damagatla 等，人体 5 个部位、10 名受试者的组织光学参数谱，Scientific Data 2026 | 见期刊 | doi:10.1038/s41597-026-06586-9 |
 | `data/Parameter_paper_Dataset_invivo_subjects_TDDOS.zip` | 上面论文的数据集，610–1110 nm | 【许可待查】 | 【数据集地址待补，见论文】 |
-| `head/head_atlas_3d.html` | 头部图谱三维查看器网页（Plotly），25 MB | — | 实习生生成，生成方式待确认 |
+| `head/head_atlas_3d.html` | 头部图谱三维查看器网页（Plotly），25 MB | — | 马孟帝生成，生成方式待确认 |
 | `head/Improving model-based ….pdf` | Tran、Yan、Fang，Neurophotonics 2020 | 见期刊 | doi:10.1117/1.NPh.7.1.015008 |
 
 ## 怎么用

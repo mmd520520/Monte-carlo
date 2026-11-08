@@ -4,9 +4,9 @@
 
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| 与代码 `mcsim/` 一致 | 光学实习生、Eden Huang | 2026-11-07 |
+| 与代码 `mcsim/` 一致 | 马孟帝、Eden Huang | 2026-11-07 |
 
-素材：实习生的流程图 [assets/Monte_Carlo流程图.png](assets/Monte_Carlo流程图.png)（依据 Jacques 2023 教程）和综述 [assets/](assets/README.md)。实现是对 `legacy/matlab/` 的逐步移植。
+素材：马孟帝的流程图 [assets/Monte_Carlo流程图.png](assets/Monte_Carlo流程图.png)（依据 Jacques 2023 教程）和综述 [assets/](assets/README.md)。实现是对 `legacy/matlab/` 的逐步移植。
 
 ---
 
@@ -73,7 +73,7 @@ N 个光子包发射后：
 
 - **随机数不同**：MATLAB 用 mrg32k3a / twister，Python 用 Numba 的 Mersenne Twister。两边结果只会在统计误差内一致，不会逐位相同。
 - **MATLAB 基准光子数太少**：唯一可用的 MATLAB 数值结果只有 2,000 个光子。血液吸收和反射率偏离约 2σ，大约 2–3% 的 2,000 光子运行会偏离这么远，所以不能确认有系统差异，也不能排除。**请用 MATLAB 以相同设置跑 10 万光子**（`Step4_Main(100000, true, 1, true)`），用 `tools/extract_matlab_baseline.py` 更新基准后重跑测试。
-- **膝关节没有 MATLAB 数值基准**：几何按 MATLAB 规则生成；多边形内外判断边界点的处理可能与 MATLAB `inpolygon` 有个别体素差异。剂量结果与实习生 11 月的光斑对比结果数量级一致，但那些运行的光斑和统计方式不同，只能作参考。
+- **膝关节没有 MATLAB 数值基准**：几何按 MATLAB 规则生成；多边形内外判断边界点的处理可能与 MATLAB `inpolygon` 有个别体素差异。剂量结果与马孟帝 11 月的光斑对比结果数量级一致，但那些运行的光斑和统计方式不同，只能作参考。
 - **膝关节光源参数有三个版本**，见 `presets/knee_980nm.yaml` 的 notes。
 
 ## 8. MATLAB 到 Python 对照

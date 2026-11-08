@@ -4,7 +4,7 @@
 
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| Python 版和交互界面可用（阶段 1–7 完成）；35 个测试通过。分支 `refactor/python-interactive` | 光学实习生（GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-07 |
+| Python 版和交互界面可用（阶段 1–7 完成）；35 个测试通过。分支 `refactor/python-interactive` | 马孟帝（光学研究员，GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-07 |
 
 ## 5 分钟上手
 

@@ -4,7 +4,7 @@
 
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| 重构指南、算法说明、迁移指南已完成 | 光学实习生、Eden Huang | 2026-11-07 |
+| 重构指南、算法说明、迁移指南已完成 | 马孟帝、Eden Huang | 2026-11-07 |
 
 ## 里面有什么
 
@@ -12,9 +12,9 @@
 |---|---|
 | [REFACTOR_GUIDE.md](REFACTOR_GUIDE.md) | 重构指南：现状诊断、10 条原则、目标结构、文件处置、代码映射、验收标准、执行计划，以及可复用的清单 |
 | [REFACTOR_GUIDE_web.html](REFACTOR_GUIDE_web.html) | 网页版重构指南，给不看代码的同事和新手：蒙特卡洛小演示、名词小抄、上手步骤、通用清单。在线版：https://claude.ai/artifact/2PBhj8w4hQ4e2mT3RvH1qD（私有链接，需分享后他人才能打开） |
-| [assets/](assets/README.md) | 流程图和实习生的综述 PDF |
+| [assets/](assets/README.md) | 流程图和马孟帝的综述 PDF |
 | [algorithm.md](algorithm.md) | 算法说明：模型表示、光子的一生、两种发射方式、归一化、剂量定义、验证结果、MATLAB 对照表 |
-| [optical_parameters.md](optical_parameters.md) | 膝关节模型 980 nm 光学参数的文献出处和假设（实习生原文，从 5demo 移来）；阶段 2 整理进 `presets/` |
+| [optical_parameters.md](optical_parameters.md) | 膝关节模型 980 nm 光学参数的文献出处和假设（马孟帝原文，从 5demo 移来）；阶段 2 整理进 `presets/` |
 
 ## 怎么用
 
