@@ -8,7 +8,7 @@ import json
 import numpy as np
 import streamlit as st
 
-from common import lang, run_cached
+from common import PHOTON_OPTIONS, fmt_count, fmt_duration, lang, photon_rate, run_with_bar
 from mcsim import load_preset
 from mcsim.analysis import axis_profile, dose_table, skin_surface_on_axis
 from mcsim.geometry import build_volume
@@ -54,9 +54,12 @@ with st.sidebar:
     stride = st.selectbox(tr("voxel_size", L), strides, index=strides.index(current), key=f"res_{name}_{L}",
                           format_func=lambda k: tr(res[k][0], L, size=res[k][1]) if res[k][0] else res[k][1])
     st.session_state[f"res_{name}"] = stride
-    photons = st.select_slider(tr("photons", L),
-                               options=[2_000, 5_000, 10_000, 20_000, 50_000, 100_000, 200_000, 500_000],
-                               value=20_000 if name == "knee_980nm" else 50_000, key=f"n_{name}")
+    photons = st.select_slider(tr("photons", L), options=PHOTON_OPTIONS, format_func=fmt_count,
+                               value=20_000 if name == "knee_980nm" else 50_000, key=f"n_{name}",
+                               help=tr("photons_help", L))
+    rate = photon_rate(name, stride)
+    if photons >= 1_000_000:
+        st.caption(tr("eta", L, t=fmt_duration(photons / rate, L)) if rate else tr("eta_unknown", L))
     seed = st.number_input(tr("seed", L), min_value=0, max_value=2**31 - 1, value=1, step=1, key=f"seed_{name}")
     st.subheader(tr("source", L))
     diameter = st.number_input(tr("diameter", L, unit=unit), min_value=0.01,
@@ -80,8 +83,7 @@ stale = active != params
 st.caption(tr("caption", L, title=preset_title(base, L), based_on=base.based_on, unit=unit))
 
 try:
-    with st.spinner(tr("spinner", L)):
-        result = run_cached(*active)
+    result = run_with_bar(L, *active)
 except ValueError as exc:
     st.error(tr("param_error", L, error=exc))
     st.stop()

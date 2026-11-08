@@ -7,7 +7,8 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 APP = str(Path(__file__).resolve().parent.parent / "app" / "streamlit_app.py")
-PAGES = ["views/science_home.py", "views/simulator.py", "views/validation.py", "views/product_home.py",
+PAGES = ["views/science_home.py", "views/simulator.py", "views/validation.py", "views/principles.py",
+         "views/product_home.py",
          "views/muse_case.py", "views/headband_loop.py", "views/laser.py"]
 
 
@@ -67,3 +68,27 @@ def test_language_switch_keeps_the_result():
     at.run()
     assert not at.exception, at.exception
     assert at.selectbox(key="preset_zh").value == "skin_500nm"
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("lang", ["zh", "en"])
+def test_principles_page_answers_algorithm_and_gpu(lang):
+    at = _app(lang)
+    at.switch_page("views/principles.py").run()
+    assert not at.exception, at.exception
+    assert len(at.tabs) == 4
+    assert len(at.get("graphviz_chart")) == 3  # one photon packet; batches and threads; CPU vs GPU
+    text = " ".join(m.value for m in at.markdown)
+    for term in ("Henyey", "Fresnel", "GPU", "MCX", "SIMT", "atomic", "10⁸", "S1", "V1", "A2"):
+        assert term in text, (lang, term)
+
+
+def test_photon_counts_are_readable():
+    import sys
+
+    sys.path.insert(0, str(Path(APP).parent))
+    from common import PHOTON_OPTIONS, fmt_count
+
+    assert PHOTON_OPTIONS[-1] == 100_000_000
+    assert [fmt_count(n) for n in (50_000, 1_000_000, 2_000_000, 10_000_000, 100_000_000, 1_234_567)] == [
+        "50,000", "10⁶", "2×10⁶", "10⁷", "10⁸", "1,234,567"]

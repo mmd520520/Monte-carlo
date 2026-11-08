@@ -2,3 +2,4 @@ Monte Carlo light transport: many photons, one by one, randomly "travel a step, 
 
 - **Simulation**: two models (skin with vessel at 500 nm, knee at 980 nm); change the settings and see the result.
 - **Validation**: any uniform slab, this engine against the independent adding–doubling method.
+- **How it works**: the algorithm flowchart, key formulas, CPU parallelism and GPU, optimization directions.

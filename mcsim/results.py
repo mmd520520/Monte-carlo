@@ -45,6 +45,7 @@ class SimulationResult:
     counters: dict[str, float]
     batch_stats: dict[str, np.ndarray] = field(default_factory=dict)
     elapsed_s: float = 0.0
+    transport_s: float = 0.0  # time inside the transport kernel only (no set-up, merging or output)
     workers: int = 1
 
     # ---------- derived ----------

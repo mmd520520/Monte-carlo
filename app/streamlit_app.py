@@ -1,6 +1,6 @@
 """交互界面 / Interactive app: uv run streamlit run app/streamlit_app.py  (English: add ?lang=en to the URL)
 
-Two sections: 科普 Science (papers, simulation, validation) and 产品 Product (from R&D to product).
+Two sections: 科普 Science (papers, simulation, validation, how it works) and 产品 Product (from R&D to product).
 Pages live in app/views/; long text in app/content/; internal notes, if present, in project/private/app/.
 """
 
@@ -40,6 +40,8 @@ pages = {
                 url_path="science", default=True),
         st.Page(V / "simulator.py", title=tr("nav_simulator", lang), icon=":material/science:", url_path="simulate"),
         st.Page(V / "validation.py", title=tr("nav_validation", lang), icon=":material/fact_check:", url_path="validate"),
+        st.Page(V / "principles.py", title=tr("nav_principles", lang), icon=":material/account_tree:",
+                url_path="how-it-works"),
     ],
     tr("nav_product", lang): [
         st.Page(V / "product_home.py", title=tr("nav_product_home", lang), icon=":material/rocket_launch:",

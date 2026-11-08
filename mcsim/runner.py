@@ -9,6 +9,7 @@ depends only on (seed, batch_size) and is bit-identical for any worker count.
 from __future__ import annotations
 
 import os
+import threading
 import time
 from collections.abc import Callable
 
@@ -40,6 +41,10 @@ def batch_plan(photons: int, batch_size: int, seed: int) -> tuple[np.ndarray, np
 
 BUFFER_BUDGET_BYTES = float(os.environ.get("MCSIM_BUFFER_GB", "2")) * 1e9
 
+# Numba's default "workqueue" threading layer must not be entered by two Python threads at once
+# (the process aborts). A web server runs each visitor in its own thread, so runs take turns here.
+_RUN_LOCK = threading.Lock()
+
 
 def resolve_workers(requested: int, n_batches: int, bytes_per_batch: int = 0) -> int:
     """Parallel batches per wave: requested (0 = all cores), capped by batches, threads and memory."""
@@ -55,6 +60,17 @@ def simulate(
     workers: int | None = None,
     volume: Volume | None = None,
     progress: ProgressFn | None = None,
+) -> SimulationResult:
+    with _RUN_LOCK:
+        return _simulate(preset, workers=workers, volume=volume, progress=progress)
+
+
+def _simulate(
+    preset: Preset,
+    *,
+    workers: int | None,
+    volume: Volume | None,
+    progress: ProgressFn | None,
 ) -> SimulationResult:
     t0 = time.perf_counter()
     run = preset.run
@@ -95,8 +111,10 @@ def simulate(
     stats["absorbed_by_label"] = []
 
     done = 0
+    transport_s = 0.0
     for start in range(0, len(counts), W):
         m = min(W, len(counts) - start)
+        tw = time.perf_counter()
         run_wave(
             labels, optics.mua, optics.mus, optics.g, optics.n, spacing, offset,
             beam_xy_r, beam.start_z, beam.launch_z, u0, beam.w0,
@@ -104,6 +122,7 @@ def simulate(
             counts[start : start + m], seeds[start : start + m],
             A_buf[:m], R_buf[:m], T_buf[:m], AIR_buf[:m], C_buf[:m],
         )
+        transport_s += time.perf_counter() - tw
         for j in range(m):  # merge in batch order: identical sums for any W
             A += A_buf[j]
             R += R_buf[j]
@@ -127,5 +146,6 @@ def simulate(
     result = normalise(preset, volume, optics, beam, A, R, T, AIR_T, C, run.photons)
     result.batch_stats = {k: np.array(v) for k, v in stats.items()}
     result.elapsed_s = time.perf_counter() - t0
+    result.transport_s = transport_s
     result.workers = W
     return result

@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from common import content, lang
+from common import PHOTON_OPTIONS, content, fmt_count, lang
 from mcsim.i18n import tr
 from mcsim.reference import compare_slab
 
@@ -25,7 +25,8 @@ with st.form("slab"):
     g = c[2].number_input(tr("val_g", L), -0.99, 0.99, 0.9, 0.05)
     n = c[3].number_input(tr("val_n", L), 1.0, 2.0, 1.4, 0.01)
     d = c[4].number_input(tr("val_d", L), 0.05, 3.0, 1.0, 0.05)
-    photons = c[5].select_slider(tr("val_photons", L), [20_000, 100_000, 200_000, 1_000_000], value=100_000)
+    photons = c[5].select_slider(tr("val_photons", L), [n for n in PHOTON_OPTIONS if n >= 20_000], value=100_000,
+                                 format_func=fmt_count, help=tr("photons_help", L))
     submitted = st.form_submit_button(tr("run", L), type="primary")
 
 if mua + mus <= 0:
@@ -44,4 +45,4 @@ if all(abs(r.z(q)) <= 3 for q in "RTA"):
     st.success(tr("val_ok", L))
 else:
     st.warning(tr("val_check", L))
-st.caption(tr("val_caption", L, n=f"{photons:,}", secs=f"{r.elapsed_s:.1f}"))
+st.caption(tr("val_caption", L, n=fmt_count(photons), secs=f"{r.elapsed_s:.1f}"))
