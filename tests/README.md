@@ -4,7 +4,7 @@
 
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| 35 个测试全部通过，约 11 秒 | 马孟帝 | 2026-11-07 |
+| 39 个测试全部通过，约 12 秒 | 马孟帝 | 2026-11-07 |
 
 ## 里面有什么
 
@@ -14,6 +14,7 @@
 | `test_geometry.py` | 模型的层数、体素数与 MATLAB 一致 |
 | `test_energy.py` | 能量收支误差 < 10⁻⁸（皮肤、斜入射、膝关节） |
 | `test_physics.py` | 比尔–朗伯定律、无吸收、Fresnel 反射 |
+| `test_reference.py` | 与加倍法（独立的确定性算法，`iadpython`）对比 4 个均匀平板的总反射、总透射；不需要 MATLAB |
 | `test_reproducibility.py` | 同种子同结果；单线程与并行逐位相同 |
 | `test_matlab_parity.py` | 与 MATLAB 粗网格结果在 3σ 内一致 |
 | `test_analysis.py` | 剂量计算的定义和边界情况 |

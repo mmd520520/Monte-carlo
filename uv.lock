@@ -199,6 +199,19 @@ wheels = [
 ]
 
 [[package]]
+name = "iadpython"
+version = "0.5.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8c/a9/bd81ac773ea970cd640a1f85d774b1f6eed0a2173e5664adb5d06a6360e0/iadpython-0.5.3.tar.gz", hash = "sha256:9efa69677a22450c140c4d13bd30b4f066a3158731c3a4497a7a989bac1dbc4a", size = 2519445, upload-time = "2023-09-19T23:02:38.554Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c6/ce/0059cce71767ff796bda53aad8767a1f9b7b159a2542e1cb19312f68c13c/iadpython-0.5.3-py3-none-any.whl", hash = "sha256:8d6065e43ffc2b2819be926ad84b696f3f135a1e39bfd9c66027a1c26e5016a6", size = 40383, upload-time = "2023-09-19T23:02:36.844Z" },
+]
+
+[[package]]
 name = "idna"
 version = "3.20"
 source = { registry = "https://pypi.org/simple" }
@@ -362,6 +375,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "h5py" },
+    { name = "iadpython" },
     { name = "pytest" },
 ]
 
@@ -378,6 +392,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "h5py", specifier = ">=3.10" },
+    { name = "iadpython", specifier = ">=0.5.3" },
     { name = "pytest", specifier = ">=8.0" },
 ]
 

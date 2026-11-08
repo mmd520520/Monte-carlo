@@ -382,7 +382,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
 │   └── plotting.py      <span class="c">#   画图</span>
 ├── presets/             <span class="c"># 参数配置：skin_500nm、knee_980nm（每个数字带出处）</span>
 ├── app/                 <span class="c"># 交互界面：拖滑块、点按钮就能算</span>
-├── tests/               <span class="c"># 自动检查：能量守恒、和 MATLAB 对比</span>
+├── tests/               <span class="c"># 自动检查：能量守恒、和独立方法及 MATLAB 对比</span>
 ├── docs/                <span class="c"># 文档：重构指南、算法说明、参数来源</span>
 ├── internal/            <span class="c"># 内部材料，如分享 PPT（不进仓库，放公司网盘）</span>
 ├── legacy/matlab/       <span class="c"># 原 MATLAB 代码，只读</span>
@@ -483,6 +483,7 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
             <tr><td>能量守恒</td><td>光子带进去多少能量，最后都要有去处，一点不能多也不能少</td><td>吸收、反射、透射、侧面离开等全部加起来等于 1，误差小于一亿分之一</td></tr>
             <tr><td>物理极限</td><td>只吸收不散射时，结果要和教科书公式一致</td><td>符合比尔–朗伯定律；折射率相同时边界不反射</td></tr>
             <tr><td>和 MATLAB 对比</td><td>新旧两版算同一个问题，答案要一样</td><td>反射、吸收、透射在统计误差范围内一致</td></tr>
+            <tr><td>和独立方法对比</td><td>换一种完全不同的算法（加倍法）算简单平板，答案要一样</td><td>总反射、总透射在统计误差范围内一致；不需要 MATLAB</td></tr>
             <tr><td>可复现</td><td>同样的设置再算一次，结果一模一样</td><td>同一随机种子两次结果逐位相同；单线程和并行结果一致</td></tr>
             <tr><td>速度</td><td>普通笔记本上能等得起</td><td>10 万个光子（皮肤模型）不到 1 分钟</td></tr>
             <tr><td>好上手</td><td>新同事不用人教也能跑起来</td><td>按 README 从下载到出图不超过 5 分钟</td></tr>
@@ -500,7 +501,7 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
         <li class="done"><div><div class="row"><b>1. 整理仓库</b><span class="pill ok">已完成</span></div><span class="d">第三方资料和大文件移到本地 references/，运行产物移到本地 outputs/，MATLAB 代码冻结到 legacy/。git 里只剩 72 个文件、2.4 MB（不含历史）。</span></div></li>
         <li class="done"><div><div class="row"><b>2. 搭骨架</b><span class="pill ok">已完成</span></div><span class="d">Python 包 mcsim/ 和两个参数预设，依赖用 uv 管理。</span></div></li>
         <li class="done"><div><div class="row"><b>3. 移植核心算法</b><span class="pill ok">已完成</span></div><span class="d">能量误差小于一亿分之一；单线程和并行结果逐位相同。10 万光子：皮肤全分辨率 7.9 秒，膝关节 2.5 秒。</span></div></li>
-        <li class="done"><div><div class="row"><b>4. 和 MATLAB 对比</b><span class="pill ok">已完成</span></div><span class="d">组织模型逐体素一致；各项结果都在 3σ 内。MATLAB 只有 2,000 光子的结果，建议补跑 10 万光子再确认一次。</span></div></li>
+        <li class="done"><div><div class="row"><b>4. 和 MATLAB 对比</b><span class="pill ok">已完成</span></div><span class="d">组织模型逐体素一致；各项结果都在 3σ 内。另外和独立的加倍法对比了 4 个平板算例，全部一致，所以不再需要 MATLAB。</span></div></li>
         <li class="done"><div><div class="row"><b>5. 膝关节和剂量</b><span class="pill ok">已完成</span></div><span class="d">中心轴、圆面平均、圆面能量三种剂量算法，定义与原 MATLAB 一致。</span></div></li>
         <li class="done"><div><div class="row"><b>6. 交互界面</b><span class="pill ok">已完成</span></div><span class="d">Streamlit 网页：调参数、看光分布、算剂量、导出结果。</span></div></li>
         <li class="done"><div><div class="row"><b>7. 补全文档</b><span class="pill ok">已完成</span></div><span class="d">README 5 分钟上手、算法说明和验证结果（docs/algorithm.md）。</span></div></li>

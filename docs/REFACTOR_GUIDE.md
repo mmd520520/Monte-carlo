@@ -81,7 +81,7 @@ monte-carlo/
 │   └── knee_980nm.yaml
 ├── app/
 │   └── streamlit_app.py      # 交互界面
-├── tests/                    # 能量守恒、物理极限、MATLAB 对比
+├── tests/                    # 能量守恒、物理极限、独立方法对比、MATLAB 对比
 ├── internal/                 # 内部材料：分享 PPT 等（不进 git，放企业微信网盘）
 ├── docs/
 │   ├── REFACTOR_GUIDE.md     # 本文
@@ -186,6 +186,7 @@ __pycache__/
 | 能量守恒 | 吸收 + 反射 + 透射 + 侧逃逸 + 镜面 + 轮盘修正 = 1（误差 < 1e-8） |
 | 物理极限 | 无散射介质 → 吸收符合 Beer–Lambert；折射率匹配 → 无边界反射 |
 | MATLAB 对比 | 同一预设、同光子数下，R / A / T 与 `legacy/` 结果在 3σ 统计误差内一致 |
+| 独立对比 | 均匀平板的总反射、总透射与加倍法（`iadpython`）在统计误差内一致，不依赖 MATLAB |
 | 可复现 | 同种子运行两次结果逐位相同；串行与并行结果一致 |
 | 性能 | 10⁵ 光子（皮肤预设）在笔记本上 < 1 分钟 |
 | 上手 | 新人按 README 从 clone 到出图 ≤ 5 分钟 |
@@ -199,7 +200,7 @@ __pycache__/
 | 1. 整理仓库 ✓ | 按第 4 节搬移/删除文件，加 `.gitignore`、README 骨架 | 已完成 2026-11-07：git 跟踪 72 个文件、2.4 MB；第三方资料在本地 `references/`，运行产物在本地 `outputs/` |
 | 2. 搭骨架 ✓ | `pyproject.toml`、包结构、配置格式、预设 YAML | 已完成：`mcsim/`、`presets/`，uv 管理依赖 |
 | 3. 移植内核 ✓ | `kernel.py` + `runner.py` + `results.py`，先跑通皮肤预设 | 已完成：能量误差 < 10⁻⁸，单线程与并行逐位相同 |
-| 4. 对比验证 ✓ | 在 MATLAB 侧跑固定参数基准，写入测试 | 已完成：用现有 2,000 光子结果，全部在 3σ 内；建议补跑 10 万光子（见 `docs/algorithm.md` 第 7 节） |
+| 4. 对比验证 ✓ | 在 MATLAB 侧跑固定参数基准，写入测试 | 已完成：用现有 2,000 光子结果，全部在 3σ 内；另与加倍法独立对比，4 个平板算例全部一致，不再依赖 MATLAB 补跑（见 `docs/algorithm.md` 第 6、7 节） |
 | 5. 膝关节 + 剂量 ✓ | 膝关节预设、`analysis.py` | 已完成：中心轴、圆面平均、圆面能量三种算法与 `main.m` 定义一致；无 MATLAB 数值基准可对 |
 | 6. 交互界面 ✓ | Streamlit 应用 | 已完成：`uv run streamlit run app/streamlit_app.py` |
 | 7. 文档 ✓ | README、`algorithm.md`、`optical_parameters.md` | 已完成：根目录 README 有 5 分钟上手步骤 |

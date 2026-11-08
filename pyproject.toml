@@ -17,6 +17,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "h5py>=3.10",
+    "iadpython>=0.5.3",
 ]
 
 [project.scripts]

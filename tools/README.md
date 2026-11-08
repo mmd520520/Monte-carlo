@@ -12,7 +12,9 @@
 | `pre-push` | 推送保护：不让内部材料、第三方文件和运行产物推到公开仓库 |
 | `sync_private.sh` | 可选：把当前代码 + `internal/`、`references/`、`outputs/` 备份到私有仓库的 `private/full` 分支 |
 
-## 提取 MATLAB 基准
+## 提取 MATLAB 基准（可选）
+
+物理是否正确已由 `tests/test_reference.py` 与加倍法独立核对，不需要 MATLAB。下面几步只用于确认 Python 版与 MATLAB 原版逐项一致。
 
 1. 在 MATLAB 里运行 `Step4_Main(100000, true, 1, true)`（`legacy/matlab/2demo` 目录下），得到 `mc_smoke_results.mat`。
 2. 把它放到本地 `outputs/legacy_matlab/2demo/`。
