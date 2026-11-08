@@ -1,0 +1,29 @@
+# 敏感材料：只放私有空间（例如企业微信微盘）
+project/private/
+
+# 第三方资料（版权不归我们）：只保留清单
+references/*
+!references/README.md
+
+# 运行结果：可以重新生成
+outputs/
+results/
+
+# 密钥和本地配置
+.env
+.env.*
+*.pem
+*.key
+
+# 大文件和二进制
+*.zip
+*.exe
+*.dll
+*.mat
+
+# 环境和缓存
+.venv/
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store
