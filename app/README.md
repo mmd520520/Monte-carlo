@@ -46,6 +46,7 @@ uv run streamlit run app/streamlit_app.py
 ## 给 AI 的说明
 
 - 页面只负责布局；计算放 `mcsim/`，画图放 `mcsim/plotting.py`，平板对照放 `mcsim/reference.py`。
+- 外观和官网 joulezmed.com 一致：配色和字体在仓库根目录 `.streamlit/config.toml`；logo、样式表、页头和页脚在 `brand.py`；每页页头的插图（吉祥物“小光子”）在 `art.py`，是纯 SVG、不含文字，中英共用。新页面用 `banner(标题, 一句话, 插图名)` 开头。logo 文件在 `assets/`，来自官网仓库 `public/images/`。
 - 短的界面文字放 `mcsim/i18n.py` 的 `TEXT`；长文字放 `content/`，中英各一份。不要在页面代码里直接写中文或英文段落。
 - 这里是公开仓库：产品部分只用官网公开的信息和公开案例；内部讨论放 `project/private/app/`，用 `common.private_content()` 读。
 - 示意数据（例如 Muse 训练）必须在页面上写明是模拟的。

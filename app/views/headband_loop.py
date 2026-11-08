@@ -2,6 +2,7 @@
 
 import streamlit as st
 
+from brand import banner
 from common import content, lang, private_content
 from mcsim.i18n import tr
 
@@ -49,7 +50,7 @@ QUESTIONS = [
      "Claims: a wellness product or a medical device? What level of evidence is needed?"),
 ]
 
-st.title(tr("hb_title", L))
+banner(tr("hb_title", L), tr("sub_headband", L), "headband")
 st.markdown(content("headband_intro", L))
 
 left, right = st.columns([1, 2])
@@ -76,13 +77,13 @@ if design["light"] != "none":
     edges.append(f'decide -> light [label="{timing_label}"]')
     edges.append("light -> user")
 dot = f"""digraph {{
-  rankdir=LR; bgcolor="transparent"; node [shape=box, style="rounded,filled", fillcolor="#F4F6F8", color="#1B2A3A", fontname="Helvetica"];
-  edge [color="#8A93A0", fontcolor="#8A93A0", fontname="Helvetica", fontsize=10];
-  user [label="{tr('hb_n_user', L)}", fillcolor="#E8ECF1"];
+  rankdir=LR; bgcolor="transparent"; node [shape=box, style="rounded,filled", fillcolor="#F6F8FC", color="#0D2472", fontname="Helvetica"];
+  edge [color="#8A9BC4", fontcolor="#8A9BC4", fontname="Helvetica", fontsize=10];
+  user [label="{tr('hb_n_user', L)}", fillcolor="#E8EDFF"];
   sense [label="{tr('hb_n_sense', L)}\\n{sensors_txt}"];
   decide [label="{tr('hb_n_decide', L)}"];
   feedback [label="{tr('hb_n_feedback', L)}"];
-  light [label="{tr('hb_n_light', L)}\\n{light_label}", fillcolor="#F6E7E9", color="#A51C30"];
+  light [label="{tr('hb_n_light', L)}\\n{light_label}", fillcolor="#E6F7FC", color="#1040C1"];
   {"; ".join(edges)};
 }}"""
 questions = [zh if L == "zh" else en for cond, zh, en in QUESTIONS if cond(design)]

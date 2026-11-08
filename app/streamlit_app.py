@@ -15,6 +15,7 @@ APP = Path(__file__).resolve().parent
 sys.path.insert(0, str(APP.parent))
 sys.path.insert(0, str(APP))
 
+import brand  # noqa: E402
 from mcsim.i18n import LANG_LABELS, LANGS, tr  # noqa: E402
 
 # Language: the switch at the top right; ?lang=en opens the English version directly.
@@ -25,7 +26,8 @@ if st.session_state.get("lang") not in LANGS:
 lang = st.session_state["lang"]
 st.session_state["_lang_prev"] = lang
 
-st.set_page_config(page_title=tr("page_title", lang), layout="wide")
+st.set_page_config(page_title=tr("page_title", lang), page_icon=str(brand.LOGO_MARK), layout="wide")
+brand.apply()
 st.query_params["lang"] = lang  # keeps the current language in a shareable link
 
 _, switch = st.columns([5, 1])
@@ -53,3 +55,4 @@ pages = {
     ],
 }
 st.navigation(pages).run()
+brand.footer(tr("footer", lang))

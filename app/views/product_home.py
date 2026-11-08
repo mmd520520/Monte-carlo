@@ -2,11 +2,12 @@
 
 import streamlit as st
 
+from brand import banner
 from common import content, lang, private_content
 from mcsim.i18n import tr
 
 L = lang()
-st.title(tr("prod_title", L))
+banner(tr("prod_title", L), tr("sub_product", L), "product")
 st.markdown(content("product_home", L))
 
 notes = private_content("product_notes", L)

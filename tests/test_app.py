@@ -28,6 +28,7 @@ def test_every_page_renders(lang):
         at.switch_page(page).run()
         assert not at.exception, (lang, page, at.exception)
         assert at.title, (lang, page)
+        assert at.get("image"), (lang, page)  # the banner's illustration
 
 
 @pytest.mark.slow

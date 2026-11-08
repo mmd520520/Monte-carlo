@@ -8,6 +8,7 @@ import json
 import numpy as np
 import streamlit as st
 
+from brand import banner
 from common import MAX_VOXELS, PHOTON_OPTIONS, fmt_count, fmt_duration, lang, photon_rate, run_with_bar
 from mcsim import load_preset
 from mcsim.analysis import axis_profile, dose_table, skin_surface_on_axis
@@ -34,7 +35,7 @@ def volume_cached(name: str, stride: int):
     return preset, build_volume(preset.geometry)
 
 
-st.title(tr("title", L))
+banner(tr("title", L), tr("sub_simulate", L), "simulate")
 st.info(tr("live_intro", L), icon="⚡")
 
 # ---------------- sidebar ----------------

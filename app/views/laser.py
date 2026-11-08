@@ -5,6 +5,7 @@ import math
 import plotly.graph_objects as go
 import streamlit as st
 
+from brand import banner
 from common import content, fmt_count, lang, private_content, run_with_bar
 from mcsim.analysis import dose_table
 from mcsim.i18n import tr
@@ -13,7 +14,7 @@ from mcsim.plotting import FONT
 L = lang()
 DEPTHS_CM = [0.5, 1.0, 2.0, 3.0, 4.0]
 
-st.title(tr("laser_title", L))
+banner(tr("laser_title", L), tr("sub_laser", L), "laser")
 st.markdown(content("laser_public", L))
 st.info(tr("live_intro_laser", L), icon="⚡")
 
@@ -40,10 +41,10 @@ table = [{tr("col_depth", L, unit="cm"): d, tr("col_axis_h", L): round(r.axis_H_
 left, right = st.columns([1, 1])
 left.dataframe(table, hide_index=True, use_container_width=True)
 fig = go.Figure(go.Scatter(x=DEPTHS_CM, y=[r.axis_H_j_cm2 for r in rows], mode="lines+markers",
-                           line=dict(color="#A51C30", width=2)))
+                           line=dict(color="#1040C1", width=2)))
 fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), font=FONT, plot_bgcolor="white")
-fig.update_xaxes(title=tr("fig_depth_below", L, unit="cm"), gridcolor="#E5E5E5")
-fig.update_yaxes(title="H [J/cm²]", type="log", gridcolor="#E5E5E5")
+fig.update_xaxes(title=tr("fig_depth_below", L, unit="cm"), gridcolor="#E7EBF3")
+fig.update_yaxes(title="H [J/cm²]", type="log", gridcolor="#E7EBF3")
 right.plotly_chart(fig, use_container_width=True)
 st.caption(tr("laser_caption", L))
 

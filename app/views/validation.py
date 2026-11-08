@@ -4,6 +4,7 @@ import time
 
 import streamlit as st
 
+from brand import banner
 from common import PHOTON_OPTIONS, busy_and_stop, content, fmt_count, lang, live_note
 from mcsim.i18n import tr
 from mcsim.reference import compare_slab
@@ -18,7 +19,7 @@ def run(mua, mus, g, n, d, photons):
     return c, time.time()  # when it finished: tells a fresh run from a reused identical one
 
 
-st.title(tr("val_title", L))
+banner(tr("val_title", L), tr("sub_validate", L), "validate")
 st.markdown(content("validation_intro", L))
 st.info(tr("live_intro_val", L), icon="⚡")
 

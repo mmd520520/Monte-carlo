@@ -2,13 +2,14 @@
 
 import streamlit as st
 
+from brand import banner
 from common import content, lang, papers
 from mcsim.i18n import tr
 
 L = lang()
 SEP = "：" if L == "zh" else ": "
 
-st.title(tr("sci_title", L))
+banner(tr("sci_title", L), tr("sub_science", L), "science")
 st.markdown(content("science_intro", L))
 
 P = papers()

@@ -1,0 +1,29 @@
+# Look of the web app, matching joulezmed.com (colours from joulez_website/app/globals.css).
+# Streamlit reads this file from the folder it is started in (the repository root).
+
+[theme]
+base = "light"
+primaryColor = "#1040C1"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F6F8FC"
+textColor = "#0F172A"
+linkColor = "#1040C1"
+borderColor = "#E7EBF3"
+showWidgetBorder = true
+baseRadius = "0.6rem"
+buttonRadius = "0.5rem"
+font = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif"
+headingFontWeights = [800, 700, 700, 600, 600, 600]
+chartCategoricalColors = ["#1040C1", "#00AADD", "#0D2472", "#3FC7EC", "#8A9BC4", "#FF8FB1"]
+
+[theme.sidebar]
+backgroundColor = "#06102B"
+secondaryBackgroundColor = "#0D2472"
+textColor = "#E6ECF8"
+primaryColor = "#3FC7EC"
+linkColor = "#3FC7EC"
+borderColor = "#1C3478"
+
+[client]
+# Visitors see the app, not Streamlit's developer menu or Deploy button.
+toolbarMode = "viewer"

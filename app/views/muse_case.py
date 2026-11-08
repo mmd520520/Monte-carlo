@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
+from brand import banner
 from common import content, lang
 from mcsim.i18n import tr
 from mcsim.plotting import FONT
@@ -37,7 +38,7 @@ def score(calm: np.ndarray):
     return 100 * on.mean(), birds, recoveries
 
 
-st.title(tr("muse_title", L))
+banner(tr("muse_title", L), tr("sub_muse", L), "muse")
 st.markdown(content("muse_case", L))
 
 st.subheader(tr("muse_try", L))
@@ -57,26 +58,26 @@ with right:
 t = np.arange(SECONDS)
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=t, y=1 - calm, name=tr("muse_sound", L), fill="tozeroy", mode="none",
-                         fillcolor="rgba(91,101,115,0.18)"))
-fig.add_trace(go.Scatter(x=t, y=calm, name=tr("muse_calm_axis", L), mode="lines", line=dict(color="#1B2A3A", width=2)))
+                         fillcolor="rgba(63,199,236,0.18)"))
+fig.add_trace(go.Scatter(x=t, y=calm, name=tr("muse_calm_axis", L), mode="lines", line=dict(color="#0D2472", width=2)))
 fig.add_trace(go.Scatter(x=birds, y=calm[birds] if birds else [], name=tr("muse_birds", L), mode="markers",
-                         marker=dict(symbol="star", size=12, color="#A51C30")))
-fig.add_hline(y=CALM, line=dict(color="#A51C30", dash="dot", width=1))
+                         marker=dict(symbol="star", size=12, color="#1040C1")))
+fig.add_hline(y=CALM, line=dict(color="#1040C1", dash="dot", width=1))
 fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10), font=FONT, plot_bgcolor="white",
                   legend=dict(orientation="h", y=1.08, x=0))
-fig.update_xaxes(title=tr("muse_time", L), gridcolor="#E5E5E5")
-fig.update_yaxes(range=[0, 1], gridcolor="#E5E5E5")
+fig.update_xaxes(title=tr("muse_time", L), gridcolor="#E7EBF3")
+fig.update_yaxes(range=[0, 1], gridcolor="#E7EBF3")
 with left:
     st.plotly_chart(fig, use_container_width=True)
 
 st.subheader(tr("muse_progress", L))
 history = [score(session(min(1.0, skill + 0.03 * k), seed * 100 + k))[0] for k in range(10)]
 baseline = float(np.mean(history[:3]))
-fig2 = go.Figure(go.Bar(x=list(range(1, 11)), y=history, marker_color="#1B2A3A", name=tr("muse_score", L)))
-fig2.add_hline(y=baseline, line=dict(color="#A51C30", dash="dash"), annotation_text=tr("muse_baseline", L),
+fig2 = go.Figure(go.Bar(x=list(range(1, 11)), y=history, marker_color="#0D2472", name=tr("muse_score", L)))
+fig2.add_hline(y=baseline, line=dict(color="#1040C1", dash="dash"), annotation_text=tr("muse_baseline", L),
                annotation_position="top left")
 fig2.update_layout(height=280, margin=dict(l=10, r=10, t=30, b=10), font=FONT, plot_bgcolor="white")
 fig2.update_xaxes(title=tr("muse_session_n", L), dtick=1)
-fig2.update_yaxes(title=tr("muse_score", L), range=[0, 100], gridcolor="#E5E5E5")
+fig2.update_yaxes(title=tr("muse_score", L), range=[0, 100], gridcolor="#E7EBF3")
 st.plotly_chart(fig2, use_container_width=True)
 st.caption(tr("muse_disclaimer", L))

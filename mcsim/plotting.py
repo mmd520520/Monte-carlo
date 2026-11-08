@@ -110,12 +110,12 @@ def axis_profile_figure(depth_mm: np.ndarray, phi: np.ndarray, unit: str, power_
     s = UNIT_SCALE[unit]
     yv = phi * power_w * 100.0 if power_w else phi
     ylab = tr("fig_fluence_rate", lang) if power_w else tr("fig_fluence", lang)
-    fig = go.Figure(go.Scatter(x=depth_mm * s, y=yv, mode="lines", line=dict(color="#A51C30", width=2),
+    fig = go.Figure(go.Scatter(x=depth_mm * s, y=yv, mode="lines", line=dict(color="#1040C1", width=2),
                                hovertemplate=f"{tr('fig_hover_depth', lang)} %{{x:.2f}} {unit}<br>%{{y:.3g}}<extra></extra>"))
     fig.update_layout(title=dict(text=tr("fig_axis_title", lang), x=0, font=dict(size=15)), font=FONT,
                       height=360, margin=dict(l=10, r=10, t=50, b=10), plot_bgcolor="white")
-    fig.update_xaxes(title=tr("fig_depth_below", lang, unit=unit), gridcolor="#E5E5E5")
-    fig.update_yaxes(title=ylab, type="log", gridcolor="#E5E5E5")
+    fig.update_xaxes(title=tr("fig_depth_below", lang, unit=unit), gridcolor="#E7EBF3")
+    fig.update_yaxes(title=ylab, type="log", gridcolor="#E7EBF3")
     return fig
 
 
@@ -124,12 +124,12 @@ def dose_figure(rows, unit: str, exposure_s: float, lang: str = "zh") -> go.Figu
     d = [r.depth_mm * s for r in rows]
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=d, y=[r.axis_H_j_cm2 for r in rows], name=tr("fig_on_axis", lang), mode="lines+markers",
-                             line=dict(color="#A51C30", width=2)))
+                             line=dict(color="#1040C1", width=2)))
     fig.add_trace(go.Scatter(x=d, y=[r.disk_mean_H_j_cm2 for r in rows], name=tr("fig_disk_mean", lang), mode="lines+markers",
-                             line=dict(color="#1B2A3A", width=2, dash="dash")))
+                             line=dict(color="#0D2472", width=2, dash="dash")))
     fig.update_layout(title=dict(text=tr("fig_dose_title", lang, t=f"{exposure_s:g}"), x=0, font=dict(size=15)),
                       font=FONT, height=380, margin=dict(l=10, r=10, t=50, b=10), plot_bgcolor="white",
                       legend=dict(orientation="h", y=1.02, x=1, xanchor="right", yanchor="bottom"))
-    fig.update_xaxes(title=tr("fig_depth_below", lang, unit=unit), gridcolor="#E5E5E5")
-    fig.update_yaxes(title="H [J/cm²]", type="log", gridcolor="#E5E5E5")
+    fig.update_xaxes(title=tr("fig_depth_below", lang, unit=unit), gridcolor="#E7EBF3")
+    fig.update_yaxes(title="H [J/cm²]", type="log", gridcolor="#E7EBF3")
     return fig

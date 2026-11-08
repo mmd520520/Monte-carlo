@@ -3,6 +3,7 @@ and where the engine can be improved. Long text lives in app/content/principles_
 
 import streamlit as st
 
+from brand import banner
 from common import busy_and_stop, content, lang
 from mcsim import load_preset, simulate
 from mcsim.i18n import tr
@@ -17,10 +18,10 @@ def t(key: str) -> str:
 
 
 STYLE = """bgcolor="transparent";
-  node [shape=box, style="rounded,filled", fillcolor="#F4F6F8", color="#1B2A3A", fontname="Helvetica", fontsize=11];
-  edge [color="#8A93A0", fontcolor="#8A93A0", fontname="Helvetica", fontsize=10];"""
-TALLY = 'fillcolor="#F6E7E9", color="#A51C30"'
-DECISION = 'shape=diamond, style="filled", fillcolor="#E8ECF1"'
+  node [shape=box, style="rounded,filled", fillcolor="#F6F8FC", color="#0D2472", fontname="Helvetica", fontsize=11];
+  edge [color="#8A9BC4", fontcolor="#8A9BC4", fontname="Helvetica", fontsize=10];"""
+TALLY = 'fillcolor="#E6F7FC", color="#1040C1"'
+DECISION = 'shape=diamond, style="filled", fillcolor="#E8EDFF"'
 
 
 def photon_flow() -> str:
@@ -93,13 +94,13 @@ def cpu_vs_gpu() -> str:
     """How the same transport is spread over CPU cores today and over GPU threads in MCX."""
     return f"""digraph {{
   rankdir=TB; compound=true; {STYLE}
-  subgraph cluster_cpu {{ label="CPU"; color="#8A93A0"; fontname="Helvetica";
+  subgraph cluster_cpu {{ label="CPU"; color="#8A9BC4"; fontname="Helvetica";
     cpu [label="{t('tp_g_cpu')}", shape=oval];
     cpu_work [label="{t('tp_g_cpu_work')}"];
     cpu_tally [label="{t('tp_g_cpu_tally')}", {TALLY}];
     cpu_merge [label="{t('tp_g_cpu_merge')}"];
     cpu -> cpu_work -> cpu_tally -> cpu_merge; }}
-  subgraph cluster_gpu {{ label="GPU"; color="#8A93A0"; fontname="Helvetica";
+  subgraph cluster_gpu {{ label="GPU"; color="#8A9BC4"; fontname="Helvetica";
     gpu [label="{t('tp_g_gpu')}", shape=oval];
     gpu_work [label="{t('tp_g_gpu_work')}"];
     warp [label="{t('tp_g_warp')}", {DECISION}];
@@ -119,7 +120,7 @@ def benchmark(nonce: int) -> dict:
             "faces": r.counters["boundary_events"] / photons, "scatter": r.counters["scattering_events"] / photons}
 
 
-st.title(tr("tp_title", L))
+banner(tr("tp_title", L), tr("sub_principles", L), "principles")
 st.markdown(content("principles_intro", L))
 
 flow, math_tab, speed, roadmap = st.tabs([tr("tp_tab_flow", L), tr("tp_tab_math", L), tr("tp_tab_speed", L),
