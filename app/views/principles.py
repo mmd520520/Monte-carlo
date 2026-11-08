@@ -3,9 +3,10 @@ and where the engine can be improved. Long text lives in app/content/principles_
 
 import streamlit as st
 
-from common import content, lang
+from common import busy_and_stop, content, lang
 from mcsim import load_preset, simulate
 from mcsim.i18n import tr
+from mcsim.runner import BusyError
 
 L = lang()
 
@@ -137,8 +138,11 @@ with speed:
     if st.button(tr("tp_bench", L), help=tr("tp_bench_help", L)):
         st.session_state["tp_bench_nonce"] = st.session_state.get("tp_bench_nonce", 0) + 1
     if "tp_bench_nonce" in st.session_state:
-        with st.spinner(tr("spinner", L)):
-            b = benchmark(st.session_state["tp_bench_nonce"])
+        try:
+            with st.spinner(tr("spinner", L)):
+                b = benchmark(st.session_state["tp_bench_nonce"])
+        except BusyError:
+            busy_and_stop(L)
         c = st.columns(5)
         c[0].metric(tr("tp_bench_rate", L), f"{b['rate']:,.0f}")
         c[1].metric(tr("tp_bench_threads", L), b["workers"])

@@ -26,3 +26,17 @@ def test_runs_started_together_take_turns():
     assert len(results) == 3
     for r in results[1:]:  # same seed, so each run is identical
         assert np.array_equal(r.A, results[0].A)
+
+
+def test_waiting_too_long_reports_busy(monkeypatch):
+    import pytest
+
+    from mcsim import runner
+
+    monkeypatch.setattr(runner, "LOCK_TIMEOUT_S", 0.05)
+    assert runner._RUN_LOCK.acquire()  # someone else's long run
+    try:
+        with pytest.raises(runner.BusyError):
+            simulate(load_preset("knee_980nm", photons=2_000, seed=3, stride=2), workers=0)
+    finally:
+        runner._RUN_LOCK.release()

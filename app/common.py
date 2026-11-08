@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import streamlit as st
 import yaml
 
 from mcsim import load_preset, simulate
+from mcsim.runner import BusyError
 
 APP = Path(__file__).resolve().parent
 ROOT = APP.parent
@@ -36,8 +38,10 @@ def papers() -> dict:
 
 
 # Photon counts offered in the app. Published work typically uses 10^6-10^8; the error falls as 1/sqrt(N).
-PHOTON_OPTIONS = [10_000, 20_000, 50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000,
-                  10_000_000, 20_000_000, 50_000_000, 100_000_000]
+# A shared server can lower the ceiling with MCSIM_MAX_PHOTONS (one run at a time, so long runs make others wait).
+MAX_PHOTONS = int(float(os.environ.get("MCSIM_MAX_PHOTONS", "1e8")))
+PHOTON_OPTIONS = [n for n in (10_000, 20_000, 50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000,
+                              10_000_000, 20_000_000, 50_000_000, 100_000_000) if n <= MAX_PHOTONS]
 MAX_KEPT_RESULTS = 4  # full 3-D results are large (the finest skin grid is ~2.5 GB each)
 SUPERSCRIPT = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
 
@@ -122,5 +126,16 @@ def run_with_bar(language: str, *params):
 
     try:
         return run_cached(*params, progress=show)
+    except BusyError:
+        bar.empty()
+        busy_and_stop(language)
     finally:
         bar.empty()
+
+
+def busy_and_stop(language: str):
+    """Another visitor's run is still going on this server: say so and stop this page."""
+    from mcsim.i18n import tr
+
+    st.warning(tr("busy", language))
+    st.stop()

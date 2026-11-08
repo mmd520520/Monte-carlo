@@ -2,9 +2,10 @@
 
 import streamlit as st
 
-from common import PHOTON_OPTIONS, content, fmt_count, lang
+from common import PHOTON_OPTIONS, busy_and_stop, content, fmt_count, lang
 from mcsim.i18n import tr
 from mcsim.reference import compare_slab
+from mcsim.runner import BusyError
 
 L = lang()
 
@@ -31,8 +32,11 @@ with st.form("slab"):
 
 if mua + mus <= 0:
     st.stop()
-with st.spinner(tr("spinner", L)):
-    r = run(float(mua), float(mus), float(g), float(n), float(d), int(photons))
+try:
+    with st.spinner(tr("spinner", L)):
+        r = run(float(mua), float(mus), float(g), float(n), float(d), int(photons))
+except BusyError:
+    busy_and_stop(L)
 
 rows = []
 for q, key in (("R", "val_R"), ("T", "val_T"), ("A", "val_A")):

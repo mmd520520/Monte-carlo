@@ -39,6 +39,8 @@ TEXT: dict[str, tuple[str, str]] = {
     "eta": ("预计用时约 {t}（按这台机器上次跑这个模型的速度估算）", "Estimated time: about {t} (from this machine's last run of this model)"),
     "eta_unknown": ("这个模型在这台机器上跑过一次之后，这里会显示预计用时。", "The estimated time appears here after this model has run once on this machine."),
     "progress": ("已完成 {done} / {total} 个光子 · 还需约 {eta}", "{done} / {total} photons done · about {eta} left"),
+    "busy": ("服务器上另一个模拟还在运行，请过一会儿再点一次。（每次只能跑一个模拟，以免互相拖慢。）",
+             "Another simulation is still running on this server; please try again in a moment. (One simulation runs at a time, so runs do not slow each other down.)"),
     "dur_s": ("{n} 秒", "{n} s"),
     "dur_min": ("{n} 分钟", "{n} min"),
     "dur_h": ("{n} 小时", "{n} h"),

@@ -43,7 +43,13 @@ BUFFER_BUDGET_BYTES = float(os.environ.get("MCSIM_BUFFER_GB", "2")) * 1e9
 
 # Numba's default "workqueue" threading layer must not be entered by two Python threads at once
 # (the process aborts). A web server runs each visitor in its own thread, so runs take turns here.
+# On a shared server, set MCSIM_LOCK_TIMEOUT_S so a visitor waits at most that long for another run.
 _RUN_LOCK = threading.Lock()
+LOCK_TIMEOUT_S = float(os.environ.get("MCSIM_LOCK_TIMEOUT_S", "inf"))
+
+
+class BusyError(RuntimeError):
+    """Another run is in progress and did not finish within MCSIM_LOCK_TIMEOUT_S."""
 
 
 def resolve_workers(requested: int, n_batches: int, bytes_per_batch: int = 0) -> int:
@@ -61,8 +67,13 @@ def simulate(
     volume: Volume | None = None,
     progress: ProgressFn | None = None,
 ) -> SimulationResult:
-    with _RUN_LOCK:
+    timeout = -1 if LOCK_TIMEOUT_S == float("inf") else LOCK_TIMEOUT_S
+    if not _RUN_LOCK.acquire(timeout=timeout):
+        raise BusyError(f"another simulation is still running (waited {LOCK_TIMEOUT_S:g} s)")
+    try:
         return _simulate(preset, workers=workers, volume=volume, progress=progress)
+    finally:
+        _RUN_LOCK.release()
 
 
 def _simulate(
