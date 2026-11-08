@@ -158,5 +158,6 @@ def _simulate(
     result.batch_stats = {k: np.array(v) for k, v in stats.items()}
     result.elapsed_s = time.perf_counter() - t0
     result.transport_s = transport_s
+    result.finished_at = time.time()
     result.workers = W
     return result

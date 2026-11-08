@@ -115,12 +115,30 @@ def run_cached(name: str, stride: int, photons: int, seed: int, theta: float, ph
     return result
 
 
-def run_with_bar(language: str, *params):
-    """run_cached() with a progress bar and the time left; the bar disappears when the run is done."""
+def live_note(language: str, finished_at: float, started_at: float, n: int, secs: float, again: str) -> None:
+    """Say where the result on screen comes from: computed just now, by this visitor earlier, or reused from an
+    identical recent run (same settings and seed give a bit-identical result). ``again`` is the i18n key that
+    says what to change for a new run."""
+    from mcsim.i18n import tr
+
+    own = st.session_state.setdefault("own_runs", set())
+    values = dict(n=fmt_count(n), secs=f"{secs:.1f}", ago=fmt_duration(time.time() - finished_at, language))
+    if finished_at >= started_at:
+        own.add(finished_at)
+        st.caption(tr("live_done", language, **values))
+    elif finished_at in own:
+        st.caption(tr("live_done_earlier", language, **values))
+    else:
+        st.caption(tr("live_reused", language, again=tr(again, language), **values))
+
+
+def run_with_bar(language: str, *params, again: str = "again_seed"):
+    """run_cached() with a progress bar and the time left, then the note saying it was computed live."""
     from mcsim.i18n import tr
 
     bar = st.progress(0.0, text=tr("spinner", language))
     t0 = time.perf_counter()
+    started_at = time.time()
 
     def show(done: int, total: int) -> None:
         left = (time.perf_counter() - t0) * (total - done) / max(done, 1)
@@ -128,12 +146,14 @@ def run_with_bar(language: str, *params):
                                            eta=fmt_duration(left, language)))
 
     try:
-        return run_cached(*params, progress=show)
+        result = run_cached(*params, progress=show)
     except BusyError:
         bar.empty()
         busy_and_stop(language)
     finally:
         bar.empty()
+    live_note(language, result.finished_at, started_at, result.n_photons, result.elapsed_s, again)
+    return result
 
 
 def busy_and_stop(language: str):

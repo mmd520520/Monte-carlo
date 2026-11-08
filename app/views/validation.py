@@ -1,8 +1,10 @@
 """科普 · 验证 / Science · Validation: any uniform slab, this engine against adding-doubling."""
 
+import time
+
 import streamlit as st
 
-from common import PHOTON_OPTIONS, busy_and_stop, content, fmt_count, lang
+from common import PHOTON_OPTIONS, busy_and_stop, content, fmt_count, lang, live_note
 from mcsim.i18n import tr
 from mcsim.reference import compare_slab
 from mcsim.runner import BusyError
@@ -13,11 +15,12 @@ L = lang()
 @st.cache_data(show_spinner=False, max_entries=20)
 def run(mua, mus, g, n, d, photons):
     c = compare_slab(mua, mus, g, n, d, launch_from_air=True, photons=photons, seed=11)
-    return c
+    return c, time.time()  # when it finished: tells a fresh run from a reused identical one
 
 
 st.title(tr("val_title", L))
 st.markdown(content("validation_intro", L))
+st.info(tr("live_intro_val", L), icon="⚡")
 
 with st.form("slab"):
     c = st.columns(6)
@@ -32,11 +35,13 @@ with st.form("slab"):
 
 if mua + mus <= 0:
     st.stop()
+started_at = time.time()
 try:
     with st.spinner(tr("spinner", L)):
-        r = run(float(mua), float(mus), float(g), float(n), float(d), int(photons))
+        r, finished_at = run(float(mua), float(mus), float(g), float(n), float(d), int(photons))
 except BusyError:
     busy_and_stop(L)
+live_note(L, finished_at, started_at, int(photons), r.elapsed_s, "again_slab")
 
 rows = []
 for q, key in (("R", "val_R"), ("T", "val_T"), ("A", "val_A")):

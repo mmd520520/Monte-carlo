@@ -107,3 +107,27 @@ def test_server_can_hide_the_largest_grid(monkeypatch):
     options = " ".join(at.selectbox(key="res_skin_500nm_zh").options)
     sys.modules.pop("common", None)  # later tests read the default limit again
     assert "20 μm" in options and "10 μm" not in options  # 8 million voxels shown, 64 million hidden
+
+
+@pytest.mark.slow
+def test_results_say_they_are_computed_live():
+    import streamlit as st
+
+    st.cache_resource.clear()  # start with no recent results on this "server"
+    st.cache_data.clear()
+    at = _app("zh")
+    at.switch_page("views/simulator.py").run()
+    assert any("实时计算，不是预设结果" in i.value for i in at.info)
+    assert any("刚刚在服务器上实时算完" in c.value for c in at.caption)
+    at.run()  # any widget change reruns the page: still this visitor's own run, not someone else's
+    assert any("为你实时算出" in c.value for c in at.caption)
+
+    other = _app("zh")  # a second visitor with the same default settings gets the identical recent result
+    other.switch_page("views/simulator.py").run()
+    assert any("有人用完全相同的参数" in c.value and "换一个随机种子" in c.value for c in other.caption)
+
+    for page, intro in (("views/validation.py", "实时计算"), ("views/laser.py", "实时计算")):
+        other.switch_page(page).run()
+        assert not other.exception, (page, other.exception)
+        assert any(intro in i.value for i in other.info), page
+        assert any("实时算完" in c.value or "实时计算的结果" in c.value for c in other.caption), page

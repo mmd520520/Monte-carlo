@@ -15,6 +15,7 @@ DEPTHS_CM = [0.5, 1.0, 2.0, 3.0, 4.0]
 
 st.title(tr("laser_title", L))
 st.markdown(content("laser_public", L))
+st.info(tr("live_intro_laser", L), icon="⚡")
 
 c = st.columns(4)
 power = c[0].number_input(tr("laser_power", L), 0.1, 30.0, 20.0, 0.5)
@@ -30,7 +31,7 @@ m[0].metric(tr("laser_irr", L), f"{irr:.3g} W/cm²")
 m[1].metric(tr("laser_surface", L), f"{irr * time_s:.3g} J/cm²")
 
 # Simulated per unit power: changing the power only rescales, so it does not trigger a new run.
-result = run_with_bar(L, "knee_980nm", 2, int(photons), 1, 0.0, 0.0, spot_cm * 10, None)
+result = run_with_bar(L, "knee_980nm", 2, int(photons), 1, 0.0, 0.0, spot_cm * 10, None, again="again_laser")
 rows = dose_table(result, [d * 10 for d in DEPTHS_CM], time_s, min(spot_cm * 5, 5.0), power_w=float(power))
 surface = irr * time_s
 st.markdown(f"**{tr('laser_depth', L)}**")

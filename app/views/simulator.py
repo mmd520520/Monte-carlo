@@ -35,6 +35,7 @@ def volume_cached(name: str, stride: int):
 
 
 st.title(tr("title", L))
+st.info(tr("live_intro", L), icon="⚡")
 
 # ---------------- sidebar ----------------
 with st.sidebar:
