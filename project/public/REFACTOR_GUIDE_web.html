@@ -383,8 +383,8 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
 ├── presets/             <span class="c"># 参数配置：skin_500nm、knee_980nm（每个数字带出处）</span>
 ├── app/                 <span class="c"># 交互界面：拖滑块、点按钮就能算</span>
 ├── tests/               <span class="c"># 自动检查：能量守恒、和独立方法及 MATLAB 对比</span>
-├── docs/                <span class="c"># 文档：重构指南、算法说明、参数来源</span>
-├── internal/            <span class="c"># 内部材料，如分享 PPT（不进仓库，放公司网盘）</span>
+├── docs/                <span class="c"># 技术文档：算法说明、参数来源</span>
+├── project/             <span class="c"># 项目资料：public/ 进仓库（如本页）；private/ 敏感材料，只放公司微盘</span>
 ├── legacy/matlab/       <span class="c"># 原 MATLAB 代码，只读</span>
 └── references/          <span class="c"># 第三方资料的下载链接（文件本身不放仓库）</span></pre>
 
@@ -522,7 +522,7 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
             <tr><td>原 MATLAB 代码</td><td>只读。发现 bug 记到 docs/，不改原文件</td></tr>
             <tr><td>【】是什么</td><td>文档和 PPT 里带【】的，都是还没确认、等人填的内容</td></tr>
             <tr><td>文件命名</td><td><code>日期_主题_作者_版本</code>，例如 <code>20261107_蒙特卡洛阶段分享_框架_v1.pptx</code></td></tr>
-            <tr><td>公开仓库</td><td>仓库是公开的。个人信息、未公开数据、内部材料（如分享 PPT）放 <code>internal/</code> 和公司网盘，不提交</td></tr>
+            <tr><td>公开仓库</td><td>仓库是公开的。个人信息、未公开数据、内部材料（如分享 PPT）放 <code>project/private/</code> 和公司微盘，不提交</td></tr>
           </tbody>
         </table>
       </div>
@@ -606,7 +606,7 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
     </section>
 
     <footer>
-      <p>本页内容来自仓库里的 <code>docs/REFACTOR_GUIDE.md</code>，两者以那份文件为准。分享材料属于内部资料，不在公开仓库。</p>
+      <p>本页内容来自仓库里的 <code>project/public/REFACTOR_GUIDE.md</code>，两者以那份文件为准。分享材料属于内部资料，不在公开仓库。</p>
     </footer>
   </main>
 </div>

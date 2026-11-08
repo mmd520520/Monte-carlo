@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把当前提交 + 只在本地的文件夹（internal/ references/ outputs/）做成一个快照，
+# 把当前提交 + 只在本地的文件夹（project/private/ references/ outputs/）做成一个快照，
 # 放在 private/full 分支，推送到私有远程仓库。工作区、暂存区和当前分支都不动。
 #
 # 用法（仓库根目录）：tools/sync_private.sh [远程名，默认 mine]
@@ -9,7 +9,7 @@ set -euo pipefail
 
 REMOTE=${1:-mine}
 BRANCH=private/full
-PATHS=(internal references outputs)
+PATHS=(project/private references outputs)
 cd "$(git rev-parse --show-toplevel)"
 
 # 1. 远程必须是私有的

@@ -25,7 +25,7 @@
 
 ## 已知问题（在 Python 版里处理，原文件不改）
 
-- 两个 demo 是复制后分别修改的，差异见 `docs/REFACTOR_GUIDE.md` 1.2 节。
+- 两个 demo 是复制后分别修改的，差异见 `project/public/REFACTOR_GUIDE.md` 1.2 节。
 - `5demo/MC_RunBatch.m` 有调试输出 `fprintf("11111111111 用到了")`。
 - 膝关节光源参数前后不一致，见 `5demo/README.md`。
 

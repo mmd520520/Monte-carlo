@@ -82,12 +82,13 @@ monte-carlo/
 ├── app/
 │   └── streamlit_app.py      # 交互界面
 ├── tests/                    # 能量守恒、物理极限、独立方法对比、MATLAB 对比
-├── internal/                 # 内部材料：分享 PPT 等（不进 git，放企业微信网盘）
 ├── docs/
-│   ├── REFACTOR_GUIDE.md     # 本文
 │   ├── algorithm.md          # 算法说明（整合原流程图与 PDF）
 │   ├── optical_parameters.md # 参数来源（整合原「光学参数文献」）
 │   └── assets/               # 流程图等
+├── project/                  # 项目资料
+│   ├── public/               #   进 git：本文（含网页版）等可公开的
+│   └── private/              #   敏感材料：不进 git，只放企业微信微盘
 ├── legacy/matlab/            # 原 MATLAB 代码，冻结
 └── references/               # 第三方资料（不进 git，见 4.2）
     └── README.md             # 下载链接 + 用途说明

@@ -19,7 +19,7 @@ uv run pytest                                 # 跑全部测试
 
 ## 先看这三样
 
-1. **重构指南**：[docs/REFACTOR_GUIDE.md](docs/REFACTOR_GUIDE.md)。仓库现状、10 条原则、目标结构、分阶段计划。给不看代码的同事准备了网页版（见 [docs/README.md](docs/README.md)）。
+1. **重构指南**：[project/public/REFACTOR_GUIDE.md](project/public/REFACTOR_GUIDE.md)。仓库现状、10 条原则、目标结构、分阶段计划。给不看代码的同事准备了网页版（见 [project/public/README.md](project/public/README.md)）。
 2. **算法和验证结果**：[docs/algorithm.md](docs/algorithm.md)。每一步对应哪段代码、和 MATLAB 怎么对比的、还有哪些没确认。
 3. **第三方资料清单**：[references/README.md](references/README.md)。开源程序、论文和数据集的版本、许可和下载地址；文件本身只在本地。
 
@@ -27,11 +27,11 @@ uv run pytest                                 # 跑全部测试
 
 | 文件夹 | 是什么 | 在 git 里吗 |
 |---|---|---|
-| [docs/](docs/README.md) | 重构指南（含网页版）、算法说明、参数说明、流程图 | 是 |
+| [docs/](docs/README.md) | 技术文档：算法说明、参数说明、流程图 | 是 |
+| [project/](project/README.md) | 项目资料。`public/`：重构指南（含网页版）等可公开的；`private/`：敏感材料，只放企业微信微盘 | `public/` 是；`private/` 否 |
 | [legacy/](legacy/README.md) | 冻结的 MATLAB 原型：皮肤（2demo）、膝关节（5demo）、头部图谱可视化（head） | 是，只读 |
 | [references/](references/README.md) | 第三方资料：MCX、MMC、MCML、安装包、论文、数据集、解剖图谱 | 只有 README；文件在本地 |
 | `outputs/` | 运行产物：结果图、`.mat` 数据、核验记录 | 否，只在本地 |
-| `internal/` | 内部材料（分享 PPT 等），正式存放在企业微信网盘 | 否，只在本地和网盘 |
 | [mcsim/](mcsim/README.md) | Python 仿真包：几何、内核、并行、结果、剂量、画图 | 是 |
 | [presets/](presets/README.md) | 参数预设（皮肤 500 nm、膝关节 980 nm），每个数字带出处 | 是 |
 | [app/](app/README.md) | Streamlit 交互界面，中英双语 | 是 |
@@ -54,7 +54,7 @@ uv run pytest                                 # 跑全部测试
 
 ## 给 AI 的说明
 
-- 项目全貌以 `docs/REFACTOR_GUIDE.md` 为准；本文件只做导航，两者冲突时改本文件。
+- 项目全貌以 `project/public/REFACTOR_GUIDE.md` 为准；本文件只做导航，两者冲突时改本文件。
 - 新增文件夹时同步更新上面的“目录地图”，并在新文件夹里按约定写 README.md。
-- 仓库是**公开**的：个人信息、未公开的数据和内部材料不进 git。内部材料放 `internal/`（正式存放在企业微信网盘），第三方资料放 `references/`，运行产物放 `outputs/`，三者都已被 `.gitignore` 忽略。
+- 仓库是**公开**的：个人信息、未公开的数据和内部材料不进 git。敏感材料放 `project/private/`（只放企业微信微盘，几个人共享），第三方资料放 `references/`，运行产物放 `outputs/`，三者都已被 `.gitignore` 忽略。
 - 不要 `git add -f` 这三个文件夹。推送保护钩子 `tools/pre-push` 会拦住含它们的提交推到公开仓库，安装方法见 [tools/README.md](tools/README.md)。
