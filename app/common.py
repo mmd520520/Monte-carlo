@@ -42,7 +42,10 @@ def papers() -> dict:
 MAX_PHOTONS = int(float(os.environ.get("MCSIM_MAX_PHOTONS", "1e8")))
 PHOTON_OPTIONS = [n for n in (10_000, 20_000, 50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000,
                               10_000_000, 20_000_000, 50_000_000, 100_000_000) if n <= MAX_PHOTONS]
-MAX_KEPT_RESULTS = 4  # full 3-D results are large (the finest skin grid is ~2.5 GB each)
+# Full 3-D results are large (the finest skin grid is ~2.5 GB each). A server shared with other services can
+# keep fewer (MCSIM_MAX_KEPT_RESULTS) and hide the largest grids (MCSIM_MAX_VOXELS).
+MAX_KEPT_RESULTS = int(os.environ.get("MCSIM_MAX_KEPT_RESULTS", "4"))
+MAX_VOXELS = int(float(os.environ.get("MCSIM_MAX_VOXELS", "1e12")))
 SUPERSCRIPT = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
 
 

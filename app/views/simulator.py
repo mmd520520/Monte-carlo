@@ -8,7 +8,7 @@ import json
 import numpy as np
 import streamlit as st
 
-from common import PHOTON_OPTIONS, fmt_count, fmt_duration, lang, photon_rate, run_with_bar
+from common import MAX_VOXELS, PHOTON_OPTIONS, fmt_count, fmt_duration, lang, photon_rate, run_with_bar
 from mcsim import load_preset
 from mcsim.analysis import axis_profile, dose_table, skin_surface_on_axis
 from mcsim.geometry import build_volume
@@ -17,10 +17,10 @@ from mcsim.plotting import UNIT_SCALE, axis_profile_figure, dose_figure, fluence
 
 L = lang()
 PRESETS = ["knee_980nm", "skin_500nm"]
-RESOLUTION = {  # stride -> (label key, voxel size shown)
-    "knee_980nm": {1: ("res_original", "1.25 mm"), 2: ("res_faster", "2.5 mm")},
-    "skin_500nm": {4: ("res_recommended", "40 μm"), 2: (None, "20 μm"), 10: ("res_matlab_coarse", "100 μm"),
-                   1: ("res_full_slow", "10 μm")},
+RESOLUTION = {  # stride -> (label key, voxel size shown, number of voxels)
+    "knee_980nm": {1: ("res_original", "1.25 mm", 2_580_480), 2: ("res_faster", "2.5 mm", 322_560)},
+    "skin_500nm": {4: ("res_recommended", "40 μm", 1_000_000), 2: (None, "20 μm", 8_000_000),
+                   10: ("res_matlab_coarse", "100 μm", 64_000), 1: ("res_full_slow", "10 μm", 64_000_000)},
 }
 DOSE_DEFAULTS = {  # depths and disk radius in display units
     "knee_980nm": dict(depths="1, 2, 4, 8", radius=1.0, exposure=300.0),
@@ -48,9 +48,10 @@ with st.sidebar:
     base = load_preset(name)
     unit = base.display_unit
     s = UNIT_SCALE[unit]
-    res = RESOLUTION[name]
+    res = {k: v for k, v in RESOLUTION[name].items() if v[2] <= MAX_VOXELS}  # a shared server may hide the largest
     strides = list(res)
     current = st.session_state.get(f"res_{name}", strides[0])
+    current = current if current in strides else strides[0]
     stride = st.selectbox(tr("voxel_size", L), strides, index=strides.index(current), key=f"res_{name}_{L}",
                           format_func=lambda k: tr(res[k][0], L, size=res[k][1]) if res[k][0] else res[k][1])
     st.session_state[f"res_{name}"] = stride

@@ -92,3 +92,18 @@ def test_photon_counts_are_readable():
     assert PHOTON_OPTIONS[-1] == 100_000_000
     assert [fmt_count(n) for n in (50_000, 1_000_000, 2_000_000, 10_000_000, 100_000_000, 1_234_567)] == [
         "50,000", "10⁶", "2×10⁶", "10⁷", "10⁸", "1,234,567"]
+
+
+@pytest.mark.slow
+def test_server_can_hide_the_largest_grid(monkeypatch):
+    monkeypatch.setenv("MCSIM_MAX_VOXELS", "10e6")
+    import sys
+
+    sys.modules.pop("common", None)  # re-read the limit
+    at = _app("zh")
+    at.switch_page("views/simulator.py").run()
+    at.selectbox(key="preset_zh").set_value("skin_500nm").run()
+    assert not at.exception, at.exception
+    options = " ".join(at.selectbox(key="res_skin_500nm_zh").options)
+    sys.modules.pop("common", None)  # later tests read the default limit again
+    assert "20 μm" in options and "10 μm" not in options  # 8 million voxels shown, 64 million hidden
