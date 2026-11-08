@@ -384,7 +384,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
 ├── app/                 <span class="c"># 交互界面：拖滑块、点按钮就能算</span>
 ├── tests/               <span class="c"># 自动检查：能量守恒、和 MATLAB 对比</span>
 ├── docs/                <span class="c"># 文档：重构指南、算法说明、参数来源</span>
-├── slides/              <span class="c"># 分享 PPT（只在本地，不进公开仓库）</span>
+├── internal/            <span class="c"># 内部材料，如分享 PPT（不进仓库，放公司网盘）</span>
 ├── legacy/matlab/       <span class="c"># 原 MATLAB 代码，只读</span>
 └── references/          <span class="c"># 第三方资料的下载链接（文件本身不放仓库）</span></pre>
 
@@ -521,7 +521,7 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
             <tr><td>原 MATLAB 代码</td><td>只读。发现 bug 记到 docs/，不改原文件</td></tr>
             <tr><td>【】是什么</td><td>文档和 PPT 里带【】的，都是还没确认、等人填的内容</td></tr>
             <tr><td>文件命名</td><td><code>日期_主题_作者_版本</code>，例如 <code>20261107_蒙特卡洛阶段分享_框架_v1.pptx</code></td></tr>
-            <tr><td>公开仓库</td><td>仓库是公开的。个人信息、未公开数据、内部材料（如分享 PPT）只放本地，不提交</td></tr>
+            <tr><td>公开仓库</td><td>仓库是公开的。个人信息、未公开数据、内部材料（如分享 PPT）放 <code>internal/</code> 和公司网盘，不提交</td></tr>
           </tbody>
         </table>
       </div>

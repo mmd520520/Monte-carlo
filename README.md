@@ -27,16 +27,16 @@ uv run pytest                                 # 跑全部测试
 
 | 文件夹 | 是什么 | 在 git 里吗 |
 |---|---|---|
-| [docs/](docs/README.md) | 重构指南（含网页版）、参数说明、流程图 | 是 |
+| [docs/](docs/README.md) | 重构指南（含网页版）、算法说明、参数说明、流程图 | 是 |
 | [legacy/](legacy/README.md) | 冻结的 MATLAB 原型：皮肤（2demo）、膝关节（5demo）、头部图谱可视化（head） | 是，只读 |
 | [references/](references/README.md) | 第三方资料：MCX、MMC、MCML、安装包、论文、数据集、解剖图谱 | 只有 README；文件在本地 |
 | `outputs/` | 运行产物：结果图、`.mat` 数据、核验记录 | 否，只在本地 |
-| `slides/` | 分享 PPT；含个人信息和内部材料 | 否，只在本地（`.git/info/exclude`） |
+| `internal/` | 内部材料（分享 PPT 等），正式存放在企业微信网盘 | 否，只在本地和网盘 |
 | [mcsim/](mcsim/README.md) | Python 仿真包：几何、内核、并行、结果、剂量、画图 | 是 |
 | [presets/](presets/README.md) | 参数预设（皮肤 500 nm、膝关节 980 nm），每个数字带出处 | 是 |
 | [app/](app/README.md) | Streamlit 交互界面 | 是 |
 | [tests/](tests/README.md) | 自动测试：能量守恒、物理极限、可复现、MATLAB 对比、界面 | 是 |
-| [tools/](tools/README.md) | 一次性脚本（提取 MATLAB 基准） | 是 |
+| [tools/](tools/README.md) | 一次性脚本：提取 MATLAB 基准；推送保护 | 是 |
 
 ## 写作约定（这个仓库也是 AI 时代写作方式的示范）
 
@@ -56,5 +56,5 @@ uv run pytest                                 # 跑全部测试
 
 - 项目全貌以 `docs/REFACTOR_GUIDE.md` 为准；本文件只做导航，两者冲突时改本文件。
 - 新增文件夹时同步更新上面的“目录地图”，并在新文件夹里按约定写 README.md。
-- 仓库是**公开**的：个人信息、未公开的数据和内部材料一律只放本地（`slides/` 已通过 `.git/info/exclude` 忽略），不要提交。
-- `references/`、`outputs/` 已被 `.gitignore` 忽略；第三方文件和运行产物不要提交。
+- 仓库是**公开**的：个人信息、未公开的数据和内部材料不进 git。内部材料放 `internal/`（正式存放在企业微信网盘），第三方资料放 `references/`，运行产物放 `outputs/`，三者都已被 `.gitignore` 忽略。
+- 不要 `git add -f` 这三个文件夹。推送保护钩子 `tools/pre-push` 会拦住含它们的提交推到公开仓库，安装方法见 [tools/README.md](tools/README.md)。

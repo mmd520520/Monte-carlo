@@ -82,7 +82,7 @@ monte-carlo/
 ├── app/
 │   └── streamlit_app.py      # 交互界面
 ├── tests/                    # 能量守恒、物理极限、MATLAB 对比
-├── slides/                   # 分享 PPT，一场一个文件夹（只在本地，不进公开仓库）
+├── internal/                 # 内部材料：分享 PPT 等（不进 git，放企业微信网盘）
 ├── docs/
 │   ├── REFACTOR_GUIDE.md     # 本文
 │   ├── algorithm.md          # 算法说明（整合原流程图与 PDF）
