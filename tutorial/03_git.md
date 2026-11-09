@@ -48,6 +48,7 @@ git push                      # 5. 推到服务器，别人就能看到
 
 - GitHub 在国内有时慢或连不上。可以用国内能稳定访问的代码平台（例如 Gitee，或公司内部的平台），流程完全一样。
 - 搬家时用 `git push --all` 和 `git push --tags` 带上全部历史，不要只复制文件。
+- 这个项目 2026-11-09 搬到了腾讯工蜂：只推了 `main` 和 `legacy`，和 GitHub 逐个核对提交号一致后，把工蜂改成 `origin`，GitHub 停止更新。坑：工蜂的 SSH 只认 RSA 密钥和老式 `ssh-rsa` 算法，配置见根目录 README。
 
 ## 常见坑
 

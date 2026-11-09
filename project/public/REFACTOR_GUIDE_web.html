@@ -436,14 +436,14 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
         </li>
         <li>
           <h3>下载仓库 <span class="pill ok">现在可做</span></h3>
-          <p>在终端里进入你想放项目的文件夹，然后运行：</p>
-          <div class="cmd"><pre>git clone https://github.com/mmd520520/Monte-carlo.git</pre><button type="button" data-copy>复制</button></div>
-          <p class="small muted">做完是什么样子：多出一个 <code>Monte-carlo</code> 文件夹。仓库比较大（约 860 MB），第一次下载要等几分钟。</p>
+          <p>代码在腾讯工蜂（私有）：先找负责人开权限，按根目录 README 的“5 分钟上手”配好 SSH 密钥。然后在终端里进入你想放项目的文件夹，运行：</p>
+          <div class="cmd"><pre>git clone git@git.code.tencent.com:joulez/monte-carlo.git</pre><button type="button" data-copy>复制</button></div>
+          <p class="small muted">做完是什么样子：多出一个 <code>monte-carlo</code> 文件夹。仓库比较大（约 860 MB），第一次下载要等几分钟。</p>
         </li>
         <li>
           <h3>确认在主分支 <span class="pill ok">现在可做</span></h3>
           <p>整理后的版本就是默认分支 <code>main</code>（原来的内容在 <code>legacy</code> 分支）。运行：</p>
-          <div class="cmd"><pre>cd Monte-carlo
+          <div class="cmd"><pre>cd monte-carlo
 git checkout main</pre><button type="button" data-copy>复制</button></div>
           <p class="small muted">做完是什么样子：文件夹里出现 <code>README.md</code>、<code>mcsim/</code>、<code>app/</code>、<code>docs/</code> 和 <code>legacy/</code>。</p>
         </li>
@@ -606,7 +606,7 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
           </tbody>
         </table>
       </div>
-      <div class="callout warn"><strong>注意：</strong>这个 GitHub 仓库是公开的，任何人都能看到推送上去的内容。</div>
+      <div class="callout warn"><strong>注意：</strong>主仓库已迁到腾讯工蜂（私有）。GitHub 上的旧仓库仍然公开，2026-11-09 之前推上去的内容任何人都能看到。</div>
     </section>
 
     <footer>

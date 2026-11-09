@@ -218,7 +218,7 @@ __pycache__/
 
 **协作约定**
 
-- 重构期间的长期分支是 `refactor/python-interactive`，2026-11-08 成为 `main`。之后每个新功能从 `main` 新建分支，发 PR 合入，便于评审。
+- 重构期间的长期分支是 `refactor/python-interactive`，2026-11-08 成为 `main`。之后每个新功能从 `main` 新建分支，在工蜂上发合并请求（MR）合入，便于评审；2026-11-09 起主仓库在腾讯工蜂。
 - commit 信息格式：`类型: 做了什么`（`chore` 整理 / `feat` 新功能 / `fix` 修复 / `test` 测试 / `docs` 文档）。
 - 改光学参数必须同时更新出处；改内核必须跑通全部测试。
 - `legacy/` 只读；发现原代码有 bug，在 `docs/` 记录，不改原文件。
