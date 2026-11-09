@@ -399,10 +399,35 @@ def devices() -> str:
     )
 
 
+def nirs() -> str:
+    """Near-infrared sensing: a headband source and detector on a layered head; the mascot rides the
+    banana-shaped path that light takes between them."""
+    layers = "".join(f'<circle cx="180" cy="330" r="{r}" fill="{c}"/>' for r, c in (
+        (250, "#FBE1CF"), (236, "#EFE7DA"), (222, "#BFE4F2"), (214, "#F4B9C0"), (190, "#F8D7DB")))
+    hair = "".join(f'<path d="M{x} {y} q-3 -9 2 -14" stroke="{HAIR}" stroke-width="2.4" stroke-linecap="round"/>'
+                   for x, y in ((150, 82), (162, 81), (198, 81), (210, 82), (100, 92), (260, 92)))
+    return _svg(
+        layers + hair
+        + f'<path d="M122 86 C134 182 226 182 238 86" stroke="{CYAN_BRIGHT}" stroke-width="14" opacity=".28" '
+          f'stroke-linecap="round"/>'
+        + '<path d="M122 86 C134 182 226 182 238 86" stroke="#fff" stroke-width="2" stroke-dasharray="3 5" '
+          'stroke-linecap="round"/>'
+        + f'<path d="M92 89.6 A256 256 0 0 1 268 89.6" stroke="{BLUE}" stroke-width="9" stroke-linecap="round"/>'
+        + f'<circle cx="120" cy="81" r="12" fill="url(#glow)"/><rect x="113" y="75" width="14" height="11" rx="3" '
+          f'fill="{ICE}" stroke="{BLUE}" stroke-width="1.5"/>'
+        + f'<rect x="233" y="75" width="14" height="11" rx="3" fill="{NAVY}" stroke="{CYAN_BRIGHT}" stroke-width="2"/>'
+        + '<path d="M120 60 v-12 M110 64 l-7 -9 M130 64 l7 -9" stroke="#fff" stroke-width="2" stroke-linecap="round" '
+          'opacity=".45"/>'
+        + photon(180, 150, 16, "joy")
+        + sparkle(64, 40, 6) + sparkle(300, 36, 5, ICE) + sparkle(328, 70, 4) + dot(40, 76, 2.5)
+        + dot(240, 30, 2.5)
+    )
+
+
 SCENES = {
     "science": science, "simulate": simulate, "validate": validate, "principles": principles,
     "product": product, "muse": muse, "headband": headband, "laser": laser,
-    "hero": hero, "learn": learn, "devices": devices,
+    "hero": hero, "learn": learn, "devices": devices, "nirs": nirs,
 }
 
 

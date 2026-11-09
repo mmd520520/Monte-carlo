@@ -79,6 +79,9 @@ h1, h2, h3 {{ letter-spacing: -0.025em; }}
   .st-key-jz-hero [data-testid="stImage"] img {{ max-height: 180px; margin: 0 auto; }}
 }}
 
+/* Callback to earlier work: light surface with a cyan edge */
+.st-key-jz-callback {{ background: #f6f8fc; border-left: 4px solid #00aadd !important; }}
+
 /* Open questions: light brand surface */
 [class*="st-key-jz-questions"] {{ background: #f6f8fc; }}
 

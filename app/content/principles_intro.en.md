@@ -3,4 +3,6 @@
 - **Origin**: MCML (Wang, Jacques and Zheng, 1995) established the method, and mcxyz (Jacques) extended it to 3-D voxels. 马孟帝 (Ma Mengdi) first wrote this program in MATLAB. It was then ported one-to-one to Python + Numba (`mcsim/kernel.py`). Its results agree with the MATLAB version within statistical error and are checked against the independent adding–doubling method.
 - **Is a GPU used?** **Not yet.** The web app and the command line run entirely on CPU cores (Numba compiles the Python to machine code and runs it on many threads). The GPU was used once, in a feasibility test. On the same slab case, MCX-CL took 0.4 s on the Apple M4 Pro GPU and our engine took 4.8 s on 14 CPU cores, with the same result. How GPU acceleration works, how it differs from the CPU version, and why it is deferred are under "Parallelism and GPU".
 
-The four tabs below: the algorithm flowchart, the key formulas, parallelism and GPU, and optimization directions.
+- **Earlier near-infrared (NIRS) research**: the optics team's 2026-10-22 talk covered how near-infrared light is used to monitor the brain, the three kinds of NIRS, and where Monte Carlo fits. Most of what this engine adds next comes from it; see the "Near-infrared (NIRS)" tab.
+
+The five tabs below: the algorithm flowchart, the key formulas, near-infrared (NIRS), parallelism and GPU, and optimization directions.

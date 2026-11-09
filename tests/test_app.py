@@ -77,10 +77,10 @@ def test_principles_page_answers_algorithm_and_gpu(lang):
     at = _app(lang)
     at.switch_page("views/principles.py").run()
     assert not at.exception, at.exception
-    assert len(at.tabs) == 4
-    assert len(at.get("graphviz_chart")) == 3  # one photon packet; batches and threads; CPU vs GPU
+    assert len(at.tabs) == 5
+    assert len(at.get("graphviz_chart")) == 4  # one photon packet; NIRS; batches and threads; CPU vs GPU
     text = " ".join(m.value for m in at.markdown)
-    for term in ("Henyey", "Fresnel", "GPU", "MCX", "SIMT", "atomic", "10⁸", "S1", "V1", "A2"):
+    for term in ("Henyey", "Fresnel", "GPU", "MCX", "SIMT", "atomic", "10⁸", "S1", "V1", "A2", "MBLL", "DPF", "Jacobian", "DTOF"):
         assert term in text, (lang, term)
 
 

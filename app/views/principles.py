@@ -3,6 +3,7 @@ and where the engine can be improved. Long text lives in app/content/principles_
 
 import streamlit as st
 
+from art import scene
 from brand import banner
 from common import busy_and_stop, content, lang
 from mcsim import load_preset, simulate
@@ -110,6 +111,31 @@ def cpu_vs_gpu() -> str:
 }}"""
 
 
+def nirs_flow() -> str:
+    """Near-infrared sensing built on the engine: what it has, what to add next, what comes later."""
+    have = 'fillcolor="#E8EDFF", color="#1040C1"'
+    nxt = 'fillcolor="#E6F7FC", color="#00AADD", style="rounded,filled,dashed"'
+    later = 'fillcolor="#F1F3F7", color="#8A9BC4", fontcolor="#475569", style="rounded,filled,dashed"'
+    return f"""digraph {{
+  rankdir=LR; {STYLE}
+  head [label="{t('tp_nn_head')}", {nxt}];
+  optics [label="{t('tp_nn_optics')}", {nxt}];
+  mc [label="{t('tp_nn_mc')}", {have}];
+  dose [label="{t('tp_nn_dose')}", {have}];
+  det [label="{t('tp_nn_det')}", {nxt}];
+  cw [label="{t('tp_nn_cw')}", {nxt}];
+  fd [label="{t('tp_nn_fd')}", {nxt}];
+  td [label="{t('tp_nn_td')}", {nxt}];
+  jac [label="{t('tp_nn_jac')}", {nxt}];
+  meas [label="{t('tp_nn_meas')}", {later}];
+  inv [label="{t('tp_nn_inv')}", {later}];
+  out [label="{t('tp_nn_out')}", {later}];
+  head -> mc; optics -> mc; mc -> dose; mc -> det;
+  det -> cw; det -> fd; det -> td; det -> jac;
+  cw -> inv; jac -> inv; meas -> inv; inv -> out;
+}}"""
+
+
 @st.cache_data(show_spinner=False, max_entries=1)
 def benchmark(nonce: int) -> dict:
     """Small timed run on the machine serving the app (knee, 2.5 mm voxels)."""
@@ -123,8 +149,8 @@ def benchmark(nonce: int) -> dict:
 banner(tr("tp_title", L), tr("sub_principles", L), "principles")
 st.markdown(content("principles_intro", L))
 
-flow, math_tab, speed, roadmap = st.tabs([tr("tp_tab_flow", L), tr("tp_tab_math", L), tr("tp_tab_speed", L),
-                                          tr("tp_tab_roadmap", L)])
+flow, math_tab, nirs, speed, roadmap = st.tabs([tr("tp_tab_flow", L), tr("tp_tab_math", L), tr("tp_tab_nirs", L),
+                                                tr("tp_tab_speed", L), tr("tp_tab_roadmap", L)])
 with flow:
     st.subheader(tr("tp_flow_one", L))
     st.graphviz_chart(photon_flow(), use_container_width=True)
@@ -132,6 +158,17 @@ with flow:
     st.markdown(content("principles_flow", L))
 with math_tab:
     st.markdown(content("principles_math", L))
+with nirs:
+    with st.container(border=True, key="jz-callback"):
+        text, picture = st.columns([3, 2], vertical_alignment="center", gap="medium")
+        with text:
+            st.markdown(content("principles_nirs_callback", L))
+        with picture, st.container(key="jz-art-nirs"):
+            st.image(scene("nirs"), width="stretch")
+    st.subheader(tr("tp_nirs_flow_title", L), anchor=False)
+    st.graphviz_chart(nirs_flow(), use_container_width=True)
+    st.caption(tr("tp_nirs_legend", L))
+    st.markdown(content("principles_nirs", L))
 with speed:
     st.subheader(tr("tp_flow_many", L))
     st.graphviz_chart(batch_flow(), use_container_width=True)

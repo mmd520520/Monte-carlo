@@ -18,7 +18,7 @@
 | V1 | **White Monte Carlo / scaling** | Run once and record each packet's path length in each tissue; for a new μa, only reweight by $W\,e^{-\sum \mu_{a,i} L_i}$ instead of running again | Comparing wavelengths (for example 810 / 980 / 1064 nm) at the target depth and sweeping absorption cost almost nothing | Medium | **High** |
 | V2 | Perturbation Monte Carlo | The same packets also give the derivatives of the result with respect to μa and μs | Sensitivity analysis; fitting tissue optical properties to measurements | Medium | Medium |
 | V3 | Importance sampling / splitting | Split packets that go deep (for example 2–3 cm in the knee) into several with shared weight | Much less noise at depth | Medium | Medium |
-| V4 | Detector records (detected photons) | Record packets leaving at a detector position, with their path length in each tissue | Sensitivity maps and "banana" paths for the headband (fNIRS-like); MCX supports this natively | Medium | Medium (needed for the headband) |
+| V4 | Detector records (detected photons) | Record packets leaving at a detector position, with their path length in each tissue | The basis of near-infrared sensing for the headband: path per layer, DPF, sensitivity maps, "banana" paths; MCX supports this natively | Medium | **High** (see "Near-infrared (NIRS)") |
 
 #### 3. More accurate (physics)
 
@@ -29,7 +29,7 @@
 | A3 | Parameter uncertainty | Literature μa, μs′ and g often differ by a factor of two; draw parameters within their ranges and run many times | A band instead of a single line, so conclusions are more reliable | Medium | Medium |
 | A4 | Curved boundaries (staircase error) | Vessels and the skin surface become "staircases" of voxels, so the Fresnel normal is wrong. Options: finer voxels near interfaces, split-voxel Monte Carlo (SVMC, Yan & Fang 2020), or mesh-based Monte Carlo (MMC, Fang 2010) | More accurate near curved interfaces | Medium to large | Medium |
 | A5 | Phase function | Only Henyey–Greenstein today; some tissues are better described by modified HG or Mie theory | More accurate small-angle scattering | Small | Low |
-| A6 | Time-resolved | Record each packet's time of flight | Future time-domain NIRS (TD-NIRS); MCX supports this natively | Medium | Low |
+| A6 | Time-resolved | Record each detected packet's time of flight | The DTOF for time-domain NIRS (TD-NIRS), which also gives frequency-domain amplitude and phase; MCX supports this natively | Medium | Medium (with V4) |
 
 #### 4. Better validation
 
@@ -52,5 +52,6 @@
 2. **A1 complete the knee layers + V1 white Monte Carlo**: answers the 980 nm rehab-laser questions directly (dose at the target depth for different wavelengths and settings).
 3. **A2 bioheat model**: estimates whether the temperature rise stays within safe limits; screen settings by simulation first, then on the bench.
 4. **S3 faster voxel traversal + S5 adaptive stopping**: once runs reach 10⁷–10⁸ photons, every minute on the CPU counts.
+5. **V4 detector records + A6 time-resolved**: the basis of near-infrared sensing for the headband, followed by a 5-layer head model. Steps under "Near-infrared (NIRS)".
 
 The GPU (S2, E1) comes later, when runs above 10⁸ photons or repeated parameter sweeps become routine.
