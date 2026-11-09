@@ -25,7 +25,7 @@
 
 #### 现在的决定：暂缓
 
-2026-11-08 决定 GPU 加速先不做：先补全模型（皮肤、脂肪层），做 CPU 侧的优化（“优化方向”里的 S1、S3、S5）。等到常规需要 10⁸ 以上的光子，或者要反复扫参数时，再按 [GPU 接入指南](https://github.com/mmd520520/Monte-carlo/blob/refactor/python-interactive/project/public/gpu_mcx/GUIDE.md)（`project/public/gpu_mcx/GUIDE.md`）接入：
+2026-11-08 决定 GPU 加速先不做：先补全模型（皮肤、脂肪层），做 CPU 侧的优化（“优化方向”里的 S1、S3、S5）。等到常规需要 10⁸ 以上的光子，或者要反复扫参数时，再按 [GPU 接入指南](https://github.com/mmd520520/Monte-carlo/blob/main/project/public/gpu_mcx/GUIDE.md)（`project/public/gpu_mcx/GUIDE.md`）接入：
 
 1. 先做“后端”接口：同一个模型可以选 CPU（现在的引擎）或 GPU（MCX）来算，结果格式完全一样。
 2. 每个模型都用加倍法和现有引擎交叉验证过才能用。

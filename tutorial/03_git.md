@@ -41,7 +41,7 @@ git push                      # 5. 推到服务器，别人就能看到
 ## 分支怎么用
 
 - `main` 是主线，只放审过的东西，**不直接往上推**。
-- 做一件事就开一个分支，例如 `refactor/python-interactive`。
+- 做一件事就从 `main` 开一个分支，例如 `feature/head-model`。这个项目的 Python 重构就是在 `refactor/python-interactive` 分支上做的，完成后（2026-11-08）变成了 `main`；原来的 `main` 改名 `legacy`，原样保留。
 - 做完发合并请求，至少一个人看过再合进 `main`。
 
 ## 用国内网络时

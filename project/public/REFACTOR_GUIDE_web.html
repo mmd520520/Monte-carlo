@@ -242,7 +242,7 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
       <p class="lede">我们要把散落的 MATLAB 原型和一大堆资料，整理成一个谁都能直接用的 Python 工具。这一页写给所有人：不写代码也能看懂我们在做什么、为什么这样做，以及你可以怎么参与。</p>
       <div class="meta">
         <span class="chip accent">第 1–13 阶段已完成 · Python 版可用 · 中英双语</span>
-        <span class="chip">分支 refactor/python-interactive</span>
+        <span class="chip">主分支 main</span>
         <span class="chip">更新于 2026-11-07</span>
       </div>
       <div class="paths">
@@ -441,10 +441,10 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line
           <p class="small muted">做完是什么样子：多出一个 <code>Monte-carlo</code> 文件夹。仓库比较大（约 860 MB），第一次下载要等几分钟。</p>
         </li>
         <li>
-          <h3>切到工作分支 <span class="pill ok">现在可做</span></h3>
-          <p>整理工作在单独的分支上进行，已经推送到 GitHub。运行：</p>
+          <h3>确认在主分支 <span class="pill ok">现在可做</span></h3>
+          <p>整理后的版本就是默认分支 <code>main</code>（原来的内容在 <code>legacy</code> 分支）。运行：</p>
           <div class="cmd"><pre>cd Monte-carlo
-git checkout refactor/python-interactive</pre><button type="button" data-copy>复制</button></div>
+git checkout main</pre><button type="button" data-copy>复制</button></div>
           <p class="small muted">做完是什么样子：文件夹里出现 <code>README.md</code>、<code>mcsim/</code>、<code>app/</code>、<code>docs/</code> 和 <code>legacy/</code>。</p>
         </li>
         <li>
@@ -521,7 +521,7 @@ uv run streamlit run app/streamlit_app.py</pre><button type="button" data-copy>�
         <table>
           <thead><tr><th>事情</th><th>约定</th></tr></thead>
           <tbody>
-            <tr><td>在哪条线上改</td><td>长期分支 <code>refactor/python-interactive</code>，每个阶段一次合并请求（PR），审阅后合入</td></tr>
+            <tr><td>在哪条线上改</td><td>每个新功能从 <code>main</code> 新建分支，发合并请求（PR），审阅后合入 <code>main</code></td></tr>
             <tr><td>提交说明怎么写</td><td><code>类型: 做了什么</code>。类型用 chore（整理）、feat（新功能）、fix（修复）、test（测试）、docs（文档）</td></tr>
             <tr><td>改光学参数</td><td>同时写上出处，没有出处的数字不能进预设</td></tr>
             <tr><td>改核心算法</td><td>所有自动检查都通过才能提交</td></tr>

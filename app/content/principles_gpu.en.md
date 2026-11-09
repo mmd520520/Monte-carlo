@@ -25,7 +25,7 @@ MCX-CL, by Prof. Qianqian Fang (Northeastern University), ran the same slab on t
 
 #### Current decision: later
 
-On 2026-11-08 we decided not to do GPU acceleration yet. First complete the models (skin and fat layers) and do the CPU-side optimizations (S1, S3 and S5 under "Optimization directions"). When runs of 10⁸ photons or more become routine, or parameters need to be swept many times, connect MCX following the [GPU guide](https://github.com/mmd520520/Monte-carlo/blob/refactor/python-interactive/project/public/gpu_mcx/GUIDE.md) (`project/public/gpu_mcx/GUIDE.md`, in Chinese):
+On 2026-11-08 we decided not to do GPU acceleration yet. First complete the models (skin and fat layers) and do the CPU-side optimizations (S1, S3 and S5 under "Optimization directions"). When runs of 10⁸ photons or more become routine, or parameters need to be swept many times, connect MCX following the [GPU guide](https://github.com/mmd520520/Monte-carlo/blob/main/project/public/gpu_mcx/GUIDE.md) (`project/public/gpu_mcx/GUIDE.md`, in Chinese):
 
 1. Build a "backend" interface first, so one model can run on the CPU (today's engine) or the GPU (MCX) with exactly the same result format.
 2. Cross-check every model against adding–doubling and the current engine before using it.
