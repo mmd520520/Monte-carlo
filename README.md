@@ -2,13 +2,15 @@
 
 > 用蒙特卡洛（MC）方法模拟光在人体组织里怎么走、在哪里被吸收，回答“光能到多深、剂量多大”。
 
+> **主仓库在腾讯工蜂**：`git.code.tencent.com/joulez/monte-carlo`（私有，找负责人开权限）。2026-11-09 起只在工蜂上更新。GitHub 上的 `mmd520520/Monte-carlo` 保留之前的历史，不再更新。
+
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| Python 版和交互界面可用，并已部署成在线版（见下）；57 个测试通过，物理结果已与独立方法（加倍法）核对，不需要 MATLAB。主分支 `main`；原来的仓库内容保留在 `legacy` 分支 | 马孟帝（光学研究员，GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-08 |
+| Python 版和交互界面可用，并已部署成在线版（见下）；57 个测试通过，物理结果已与独立方法（加倍法）核对，不需要 MATLAB。主分支 `main`；原来的仓库内容保留在 `legacy` 分支；主仓库在腾讯工蜂 | 马孟帝（光学研究员，GitHub: mmd520520）、Eden Huang（审阅） | 2026-11-09 |
 
 ## 在线版：打开网页就能用
 
-交互界面已经部署在公司的服务器上，团队成员用浏览器打开就能用，手机也可以，不用装任何东西。**网址和密码不写在这里**（这个仓库是公开的），向负责人要。
+交互界面已经部署在公司的服务器上，团队成员用浏览器打开就能用，手机也可以，不用装任何东西。**网址和密码不写在这里**（GitHub 上的旧版本是公开的），向负责人要。
 
 ### 大家一起用时要知道的事
 
@@ -29,7 +31,7 @@
 
 ### 怎么更新在线版
 
-代码合并进 GitHub 的 `main` 分支后，服务器**不会自动更新**：
+代码合并进工蜂的 `main` 分支后，服务器**不会自动更新**：
 
 1. 推之前在本地跑通 `uv run pytest`。
 2. 在群里说一声“几点更新在线版”。
@@ -37,6 +39,23 @@
 4. 打开网页确认能用。
 
 ## 5 分钟上手
+
+第一次用工蜂：用微信扫码登录 git.code.tencent.com，在「账号初始化」里设好 Git 用户名，再加一把 SSH 密钥。**工蜂只认 RSA 密钥**，而且服务器用的是老式的 `ssh-rsa` 算法，新版 Mac 默认不接受。在 `~/.ssh/config` 里加上这一段：
+
+```
+Host git.code.tencent.com
+  IdentityFile ~/.ssh/id_rsa_gongfeng
+  IdentitiesOnly yes
+  HostKeyAlgorithms +ssh-rsa
+  PubkeyAcceptedAlgorithms +ssh-rsa
+```
+
+（密钥用 `ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa_gongfeng` 生成，把 `.pub` 文件的内容贴到工蜂「个人设置 → SSH 密钥」。）然后：
+
+```bash
+git clone git@git.code.tencent.com:joulez/monte-carlo.git
+cd monte-carlo
+```
 
 需要 [uv](https://docs.astral.sh/uv/)（Python 环境管理工具，Mac 上 `brew install uv`）。
 
@@ -77,7 +96,7 @@ uv run pytest                                 # 跑全部测试
 
 **用 git 管改动**
 
-- **`main` 永远能用，不直接往上推。** 做一件事就从 `main` 新建一个分支（例如 `feature/head-model`、`fix/dose-table`），做完发合并请求（PR）。`uv run pytest` 全部通过、至少一个人看过，再合进 `main`。
+- **`main` 永远能用，不直接往上推。** 做一件事就从 `main` 新建一个分支（例如 `feature/head-model`、`fix/dose-table`），做完在工蜂上发合并请求（MR，GitHub 上叫 PR）。`uv run pytest` 全部通过、至少一个人看过，再合进 `main`。
 - **一次提交只做一件事。** 提交说明写 `类型: 做了什么`（feat / fix / docs / test / chore），下面写为什么。半年后翻历史，每一步都看得懂。
 - **分支各有用途。** `main` 是当前版本；`legacy` 是 2026-11-08 之前的原始仓库（MATLAB 时期），只读、原样保留。Python 重构在 `refactor/python-interactive` 分支上完成，2026-11-08 变成了 `main`。
 - **敏感材料不进 git。** 个人信息和内部材料放企业微信微盘；推送保护钩子 `tools/pre-push` 会拦住误推（见下面“给 AI 的说明”）。
@@ -100,5 +119,5 @@ uv run pytest                                 # 跑全部测试
 
 - 项目全貌以 `project/public/REFACTOR_GUIDE.md` 为准；本文件只做导航，两者冲突时改本文件。
 - 新增文件夹时同步更新上面的“目录地图”，并在新文件夹里按约定写 README.md。
-- 仓库是**公开**的：个人信息、未公开的数据和内部材料不进 git。敏感材料放 `project/private/`（只放企业微信微盘，几个人共享），第三方资料放 `references/`，运行产物放 `outputs/`，三者都已被 `.gitignore` 忽略。
-- 不要 `git add -f` 这三个文件夹。推送保护钩子 `tools/pre-push` 会拦住含它们的提交推到公开仓库，安装方法见 [tools/README.md](tools/README.md)。
+- 主仓库在工蜂（私有），但 2026-11-09 之前的历史在 GitHub 上公开；而且按约定，敏感材料只放企业微信微盘：个人信息、未公开的数据和内部材料不进 git。敏感材料放 `project/private/`（只放企业微信微盘，几个人共享），第三方资料放 `references/`，运行产物放 `outputs/`，三者都已被 `.gitignore` 忽略。
+- 不要 `git add -f` 这三个文件夹。推送保护钩子 `tools/pre-push` 会拦住含它们的提交推到任何没登记的远程（包括工蜂和 GitHub），安装方法见 [tools/README.md](tools/README.md)。
