@@ -1,4 +1,4 @@
-"""Helpers shared by the app's pages: current language, content files, private notes, cached runs."""
+"""Helpers shared by the app's pages: current language, content files, open questions, cached runs."""
 
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from mcsim.runner import BusyError
 APP = Path(__file__).resolve().parent
 ROOT = APP.parent
 CONTENT = APP / "content"
-PRIVATE = ROOT / "project" / "private" / "app"  # git-ignored: present only on computers that have the private files
 
 
 def lang() -> str:
@@ -27,10 +26,14 @@ def content(name: str, language: str) -> str:
     return (CONTENT / f"{name}.{language}.md").read_text(encoding="utf-8")
 
 
-def private_content(name: str, language: str) -> str | None:
-    """Markdown from project/private/app/<name>.<lang>.md, or None when this computer does not have it."""
-    path = PRIVATE / f"{name}.{language}.md"
-    return path.read_text(encoding="utf-8") if path.exists() else None
+def open_questions(name: str, language: str) -> None:
+    """The questions we are working on for this product, in plain words (app/content/open_questions_<name>).
+    This repository is public: keep them high level, with no names, meetings or internal code names."""
+    from mcsim.i18n import tr
+
+    st.subheader(tr("open_questions", language))
+    with st.container(border=True, key=f"jz-questions-{name}"):
+        st.markdown(content(f"open_questions_{name}", language))
 
 
 def papers() -> dict:

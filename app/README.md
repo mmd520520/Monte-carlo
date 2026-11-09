@@ -4,7 +4,7 @@
 
 | 状态 | 负责人 | 最后更新 |
 |---|---|---|
-| 可用（本地运行），中英双语，两部分共 8 页 | 马孟帝、Eden Huang | 2026-11-08 |
+| 可用（本地运行，也部署在服务器上），中英双语，首页加两部分共 9 页 | 马孟帝、Eden Huang | 2026-11-08 |
 
 ## 怎么用
 
@@ -32,14 +32,16 @@ uv run streamlit run app/streamlit_app.py
 | `streamlit_app.py` | 入口：语言切换、页面导航 |
 | `views/` | 每页一个文件 |
 | `content/` | 长文字：每段中英各一份（`*.zh.md`、`*.en.md`）；`papers.yaml` 是论文清单 |
-| `common.py` | 共用：当前语言、读内容文件、读私有笔记、缓存的仿真 |
+| `common.py` | 共用：当前语言、读内容文件、“我们目前的问题”、缓存的仿真 |
+| `brand.py`、`art.py`、`assets/` | 外观：logo、样式、页头、插图 |
 
-**内部笔记**：“产品”部分的页面会读 `project/private/app/` 里的 Markdown（例如激光和医学事务的协作案例）。这个文件夹不进 git，所以只有拿到私有资料的电脑上才显示；其他人看到的是“内部内容在私有空间”。
+**我们目前的问题**：产品首页、脑环、康复激光三页的末尾，用大白话列出研发正在想办法回答的问题（`content/open_questions_*`）。网站有访问密码，但仓库是公开的，所以只写高层次的问题。
 
 ## 更新记录
 
 - 2026-11-07：建立（阶段 6）。
 - 2026-11-08：加“技术原理”页。
+- 2026-11-08：外观和官网一致（logo、配色、每页插图）；新增首页，概括科普和产品两部分；产品页末尾的内部笔记改成公开的“我们目前的问题”。
 - 2026-11-07：中英双语，右上角切换。
 - 2026-11-07：分成科普和产品两部分；新增论文与前沿、验证、从研发到产品、Muse 案例、脑环闭环设计、康复激光。
 
@@ -48,7 +50,7 @@ uv run streamlit run app/streamlit_app.py
 - 页面只负责布局；计算放 `mcsim/`，画图放 `mcsim/plotting.py`，平板对照放 `mcsim/reference.py`。
 - 外观和官网 joulezmed.com 一致：配色和字体在仓库根目录 `.streamlit/config.toml`；logo、样式表、页头和页脚在 `brand.py`；每页页头的插图（吉祥物“小光子”）在 `art.py`，是纯 SVG、不含文字，中英共用。新页面用 `banner(标题, 一句话, 插图名)` 开头。logo 文件在 `assets/`，来自官网仓库 `public/images/`。
 - 短的界面文字放 `mcsim/i18n.py` 的 `TEXT`；长文字放 `content/`，中英各一份。不要在页面代码里直接写中文或英文段落。
-- 这里是公开仓库：产品部分只用官网公开的信息和公开案例；内部讨论放 `project/private/app/`，用 `common.private_content()` 读。
+- 这里是公开仓库：产品部分只用官网公开的信息和公开案例。每个产品页末尾的“我们目前的问题”用 `common.open_questions()` 显示，文字在 `content/open_questions_*`，只写高层次的问题，不写人名、会议、内部代号和具体数据。
 - 示意数据（例如 Muse 训练）必须在页面上写明是模拟的。
 - 下拉框按语言分 key（`preset_zh`、`preset_en`），选中的值另存在 `preset`。
 - 改界面后跑 `uv run pytest tests/test_app.py tests/test_i18n.py`。

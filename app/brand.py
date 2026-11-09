@@ -25,14 +25,15 @@ _RINGS = (
     + "</svg>"
 )
 RINGS_URI = "data:image/svg+xml;base64," + base64.b64encode(_RINGS.encode()).decode()
+# The navy light field of the website hero.
+NAVY_GLOW = "radial-gradient(120% 130% at 85% 10%, #0d2a6b 0%, #081842 45%, #06102b 100%)"
 
 CSS = f"""
 h1, h2, h3 {{ letter-spacing: -0.025em; }}
 
 /* Page banner: navy light field with the page's illustration */
 .st-key-jz-banner {{
-  background: url("{RINGS_URI}") right -150px top -170px / 560px no-repeat,
-              radial-gradient(120% 130% at 85% 10%, #0d2a6b 0%, #081842 45%, #06102b 100%);
+  background: url("{RINGS_URI}") right -150px top -170px / 560px no-repeat, {NAVY_GLOW};
   border-radius: 20px;
   padding: 1.6rem 2rem 1.2rem;
   margin-bottom: 0.6rem;
@@ -48,6 +49,38 @@ h1, h2, h3 {{ letter-spacing: -0.025em; }}
   .st-key-jz-banner h1 {{ font-size: 1.55rem; }}
   .st-key-jz-banner [data-testid="stImage"] img {{ max-height: 150px; margin: 0 auto; }}
 }}
+
+/* Landing page: hero, two section cards, facts */
+.st-key-jz-hero {{
+  background: url("{RINGS_URI}") right -120px top -140px / 640px no-repeat, {NAVY_GLOW};
+  border-radius: 24px;
+  padding: 2.6rem 2.6rem 2rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 24px 60px -34px rgba(13, 36, 114, 0.55);
+}}
+.st-key-jz-hero h1 {{ color: #fff; font-size: 2.9rem; line-height: 1.12; letter-spacing: -0.03em; }}
+.st-key-jz-hero p {{ color: rgba(255, 255, 255, 0.74); font-size: 1.12rem; line-height: 1.65; max-width: 32em; }}
+.st-key-jz-hero [data-testid="stImage"] img {{ max-height: 300px; width: auto; margin-left: auto; }}
+.st-key-jz-cta-main a, .st-key-jz-cta-alt a {{ border-radius: 0.5rem; padding: 0.5rem 1.1rem; }}
+.st-key-jz-cta-main a {{ background: #1040c1; box-shadow: 0 12px 30px -10px rgba(16, 64, 193, 0.7); }}
+.st-key-jz-cta-main a:hover {{ background: #0b2e8a; }}
+.st-key-jz-cta-alt a {{ border: 1px solid rgba(255, 255, 255, 0.3); }}
+.st-key-jz-cta-alt a:hover {{ background: rgba(255, 255, 255, 0.08); }}
+.st-key-jz-cta-main a *, .st-key-jz-cta-alt a * {{ color: #fff !important; font-weight: 600; }}
+[class*="st-key-jz-card"] {{ border-radius: 18px; padding: 0.4rem; }}
+[class*="st-key-jz-art"] {{ background: {NAVY_GLOW}; border-radius: 14px; padding: 0.6rem 1rem; }}
+[class*="st-key-jz-art"] img {{ max-height: 220px; width: auto; margin: 0 auto; }}
+[class*="st-key-jz-fact"] {{ background: #f6f8fc; }}
+.st-key-jz-hero [data-testid="stElementToolbar"], [class*="st-key-jz-art"] [data-testid="stElementToolbar"] {{ display: none; }}
+@media (max-width: 640px) {{
+  .st-key-jz-hero {{ padding: 1.5rem 1.2rem 1.2rem; }}
+  .st-key-jz-hero [data-testid="stHorizontalBlock"] {{ gap: 0.5rem; }}
+  .st-key-jz-hero h1 {{ font-size: 1.9rem; }}
+  .st-key-jz-hero [data-testid="stImage"] img {{ max-height: 180px; margin: 0 auto; }}
+}}
+
+/* Open questions: light brand surface */
+[class*="st-key-jz-questions"] {{ background: #f6f8fc; }}
 
 /* Metrics read as small cards */
 [data-testid="stMetric"] {{

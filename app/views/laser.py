@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from brand import banner
-from common import content, fmt_count, lang, private_content, run_with_bar
+from common import content, fmt_count, lang, open_questions, run_with_bar
 from mcsim.analysis import dose_table
 from mcsim.i18n import tr
 from mcsim.plotting import FONT
@@ -48,9 +48,4 @@ fig.update_yaxes(title="H [J/cm²]", type="log", gridcolor="#E7EBF3")
 right.plotly_chart(fig, use_container_width=True)
 st.caption(tr("laser_caption", L))
 
-notes = private_content("laser_case", L)
-with st.expander(tr("internal_notes", L), expanded=notes is not None):
-    if notes:
-        st.markdown(notes)
-    else:
-        st.caption(tr("private_missing", L))
+open_questions("laser", L)

@@ -3,7 +3,7 @@
 import streamlit as st
 
 from brand import banner
-from common import content, lang, private_content
+from common import content, lang, open_questions
 from mcsim.i18n import tr
 
 L = lang()
@@ -102,9 +102,4 @@ page = [f"# {tr('hb_title', L)}", "",
         f"## {tr('hb_questions', L)}", ""] + [f"{i}. {q}" for i, q in enumerate(questions, 1)]
 st.download_button(tr("hb_download", L), "\n".join(page), file_name="headband_loop.md")
 
-notes = private_content("product_notes", L)
-with st.expander(tr("internal_notes", L), expanded=False):
-    if notes:
-        st.markdown(notes)
-    else:
-        st.caption(tr("private_missing", L))
+open_questions("headband", L)

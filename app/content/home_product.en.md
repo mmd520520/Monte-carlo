@@ -1,0 +1,1 @@
+See how Muse turns EEG into something people use every day, sketch a headband design of your own, and try out rehab-laser doses at different depths. Written for the management and product teams; no code needed.

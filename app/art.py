@@ -325,9 +325,84 @@ def laser() -> str:
     )
 
 
+def hero() -> str:
+    """Landing page: the mascot leads a parade of photons into a dome of tissue layers."""
+    dome = (
+        '<ellipse cx="340" cy="262" rx="200" ry="160" fill="#FBE7C6"/>'
+        '<ellipse cx="340" cy="262" rx="186" ry="146" fill="#F9CFCB"/>'
+        '<ellipse cx="340" cy="262" rx="156" ry="116" fill="#C6ECF8"/>'
+        '<ellipse cx="236" cy="168" rx="10" ry="6.5" fill="#EE5D69" transform="rotate(-35 236 168)"/>'
+    )
+    walks = "".join(_walk(p) for p in (
+        "214 150 L230 162 L222 178 L246 186 L240 204",
+        "214 150 L206 170 L228 172 L218 196",
+        "268 122 L280 140 L268 150 L292 162 L300 184",
+        "268 122 L284 128 L300 120 L320 132",
+    ))
+    trail = "".join(photon(x, y, r, m, glow=False) for x, y, r, m in ((60, 60, 13, "joy"), (32, 36, 9.5, "happy"),
+                                                                      (14, 18, 7, "joy")))
+    return _svg(
+        dome + walks
+        + f'<circle cx="240" cy="204" r="3.5" fill="{CYAN_BRIGHT}" stroke="#fff" stroke-width="1.2"/>'
+        + f'<circle cx="300" cy="184" r="3.5" fill="{CYAN_BRIGHT}" stroke="#fff" stroke-width="1.2"/>'
+        + '<path d="M136 104 Q186 108 210 146" stroke="#fff" stroke-width="2" stroke-dasharray="3 6" '
+          'stroke-linecap="round" opacity=".5"/>'
+        + '<path d="M196 50 Q236 60 262 116" stroke="#fff" stroke-width="2" stroke-dasharray="3 6" '
+          'stroke-linecap="round" opacity=".35"/>'
+        + trail
+        + photon(108, 92, 34, "joy")
+        + dot(190, 40, 4) + sparkle(160, 22, 6) + sparkle(318, 40, 7) + sparkle(250, 26, 4, ICE)
+        + sparkle(40, 150, 5, ICE) + sparkle(120, 186, 4) + dot(78, 196, 2.5) + dot(340, 86, 2.5)
+    )
+
+
+def learn() -> str:
+    """Science card: the mascot explains a photon's random walk at a little blackboard."""
+    return _svg(
+        '<path d="M80 150 L68 206 M170 150 L182 206" stroke="#9DB2E6" stroke-width="5" stroke-linecap="round"/>'
+        f'<rect x="36" y="36" width="178" height="116" rx="12" fill="#0D2472" stroke="{CYAN_BRIGHT}" '
+        f'stroke-width="2.5"/>'
+        '<path d="M58 60 L78 82 L66 100 L94 110 L84 132 L112 120" stroke="#fff" stroke-width="2.2" '
+        'stroke-dasharray="4 4" stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<circle cx="58" cy="60" r="4" fill="{ICE}"/><circle cx="112" cy="120" r="4" fill="{CYAN_BRIGHT}"/>'
+        '<path d="M132 60 V134 H200" stroke="#5D78C9" stroke-width="2" stroke-linecap="round"/>'
+        f'<path d="M136 66 C150 102 168 116 196 124" stroke="{CYAN_BRIGHT}" stroke-width="3" stroke-linecap="round"/>'
+        '<path d="M236 112 L196 82" stroke="#FFE9A8" stroke-width="3.5" stroke-linecap="round"/>'
+        + photon(266, 124, 32, "happy")
+        + '<rect x="244" y="182" width="64" height="12" rx="3" fill="#3A63D8"/>'
+          '<rect x="250" y="170" width="56" height="12" rx="3" fill="#EEF2FF"/>'
+          f'<rect x="240" y="194" width="72" height="12" rx="3" fill="{CYAN}"/>'
+        + sparkle(236, 40, 6) + sparkle(330, 70, 5, ICE) + sparkle(20, 170, 4) + dot(318, 30, 2.5)
+    )
+
+
+def devices() -> str:
+    """Product card: our two products on display stands, the mascot peeking between them."""
+    leds = "".join(f'<circle cx="{x}" cy="{y}" r="8" fill="url(#glow)"/><circle cx="{x}" cy="{y}" r="3" '
+                   f'fill="{ICE}"/>' for x, y in ((78, 139), (104, 144), (130, 139)))
+    return _svg(
+        '<rect x="48" y="156" width="112" height="56" rx="10" fill="#22409F"/>'
+        f'<ellipse cx="104" cy="156" rx="56" ry="11" fill="{BLUE_MID}"/>'
+        '<ellipse cx="104" cy="128" rx="46" ry="16" stroke="#3A63D8" stroke-width="4"/>'
+        f'<path d="M58 128 A46 16 0 0 0 150 128" stroke="{BLUE}" stroke-width="10" stroke-linecap="round"/>'
+        + leds
+        + '<rect x="230" y="156" width="92" height="56" rx="10" fill="#22409F"/>'
+        f'<ellipse cx="276" cy="156" rx="46" ry="10" fill="{BLUE_MID}"/>'
+        f'<path d="M266 50 H286 L310 0 H242 Z" fill="{CYAN_BRIGHT}" opacity=".22"/>'
+        '<rect x="259" y="60" width="34" height="94" rx="17" fill="#EEF2FF"/>'
+        f'<rect x="259" y="102" width="34" height="10" fill="{BLUE}"/>'
+        '<rect x="267" y="48" width="18" height="14" rx="4" fill="#9DB2E6"/>'
+        f'<circle cx="276" cy="82" r="5" fill="{CYAN_BRIGHT}"/>'
+        + photon(190, 118, 26, "joy")
+        + sparkle(176, 60, 6) + sparkle(54, 60, 5, ICE) + sparkle(330, 120, 5) + dot(214, 36, 2.5)
+        + dot(26, 120, 2.5)
+    )
+
+
 SCENES = {
     "science": science, "simulate": simulate, "validate": validate, "principles": principles,
     "product": product, "muse": muse, "headband": headband, "laser": laser,
+    "hero": hero, "learn": learn, "devices": devices,
 }
 
 

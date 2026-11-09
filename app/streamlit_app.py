@@ -1,7 +1,7 @@
 """交互界面 / Interactive app: uv run streamlit run app/streamlit_app.py  (English: add ?lang=en to the URL)
 
 Two sections: 科普 Science (papers, simulation, validation, how it works) and 产品 Product (from R&D to product).
-Pages live in app/views/; long text in app/content/; internal notes, if present, in project/private/app/.
+Pages live in app/views/; long text in app/content/; the look in app/brand.py and app/art.py.
 """
 
 from __future__ import annotations
@@ -37,9 +37,10 @@ with switch:
 
 V = APP / "views"
 pages = {
+    "": [st.Page(V / "home.py", title=tr("nav_home", lang), icon=":material/home:", default=True)],
     tr("nav_science", lang): [
         st.Page(V / "science_home.py", title=tr("nav_science_home", lang), icon=":material/menu_book:",
-                url_path="science", default=True),
+                url_path="science"),
         st.Page(V / "simulator.py", title=tr("nav_simulator", lang), icon=":material/science:", url_path="simulate"),
         st.Page(V / "validation.py", title=tr("nav_validation", lang), icon=":material/fact_check:", url_path="validate"),
         st.Page(V / "principles.py", title=tr("nav_principles", lang), icon=":material/account_tree:",

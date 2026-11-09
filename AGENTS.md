@@ -22,7 +22,7 @@ uv run mcsim run knee_980nm --dose 10 20 40 # 命令行
 - 先读根目录 README.md 和相关文件夹的 README.md，再动手；遵守各 README 的“给 AI 的说明”。
 - 改物理内核必须跑通全部测试；改光学参数必须同时写出处（`source` 和 `source_en`）。
 - 界面文字：短的放 `mcsim/i18n.py`，长的放 `app/content/`，都要中英各一份。
-- 产品部分只用公开信息；内部内容放 `project/private/app/`，由界面在本地读取。
+- 产品部分只用公开信息。网站有访问密码，但代码仓库是公开的：页面上的“我们目前的问题”（`app/content/open_questions_*`）只写高层次的问题，不写人名、会议、内部代号和具体数据。
 - 提交说明：`类型: 做了什么`（feat / fix / docs / test / chore），下面写为什么。
 - 数字（验证结果、速度、体积）来自实际运行；重测后更新，不要估算。
 
